@@ -1,15 +1,21 @@
 import "server-only"
 
+import { cache } from "react"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { auth } from "@/lib/auth"
 
-export async function getSession() {
+/**
+ * Request-scoped session lookup.
+ * React `cache()` ensures layout/page/components share one getSession call
+ * per request instead of hitting the DB repeatedly.
+ */
+export const getSession = cache(async () => {
   return auth.api.getSession({
     headers: await headers(),
   })
-}
+})
 
 export async function requireSession() {
   const session = await getSession()
