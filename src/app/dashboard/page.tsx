@@ -1,9 +1,12 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 
 import { requireSession } from "@/lib/auth/session"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SignOutButton } from "@/app/dashboard/_components/sign-out-button"
 import { signOutAction } from "@/app/dashboard/_actions/sign-out"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -32,9 +35,18 @@ export default async function DashboardPage() {
           </form>
         </div>
       </div>
-      <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-        Authentication is working. Document upload and editing come next.
-      </p>
+      <div className="flex flex-col gap-4">
+        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+          Open the editor to change existing PDF text, then export and reload to
+          confirm the edit is stored in the file.
+        </p>
+        <Link
+          href="/editor"
+          className={cn(buttonVariants({ variant: "glow" }), "w-fit")}
+        >
+          Open editor
+        </Link>
+      </div>
     </div>
   )
 }

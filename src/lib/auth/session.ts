@@ -17,7 +17,7 @@ export const getSession = cache(async () => {
   })
 })
 
-export async function requireSession() {
+export const requireSession = cache(async () => {
   const session = await getSession()
 
   if (!session) {
@@ -25,7 +25,7 @@ export async function requireSession() {
   }
 
   return session
-}
+})
 
 export async function redirectIfAuthenticated(path = "/dashboard") {
   const session = await getSession()

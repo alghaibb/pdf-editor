@@ -43,3 +43,6 @@ next-env.d.ts
 /app/generated/prisma
 
 /src/generated/prisma
+
+# Apryse WebViewer static assets (copied from node_modules on dev/build)
+/public/lib/webviewer
