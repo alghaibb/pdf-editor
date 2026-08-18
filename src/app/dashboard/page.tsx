@@ -1,12 +1,15 @@
 import type { Metadata } from "next"
-import Link from "next/link"
 
 import { requireSession } from "@/lib/auth/session"
+import { listUserDocuments } from "@/lib/documents/queries"
+import { isR2Configured, getMissingR2EnvNames } from "@/lib/r2/env"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SignOutButton } from "@/app/dashboard/_components/sign-out-button"
 import { signOutAction } from "@/app/dashboard/_actions/sign-out"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { DocumentList } from "@/app/dashboard/_components/document-list"
+import { EmptyDocuments } from "@/app/dashboard/_components/empty-documents"
+import { UploadDocumentButton } from "@/app/dashboard/_components/upload-document-button"
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -15,6 +18,9 @@ export const metadata: Metadata = {
 
 export default async function DashboardPage() {
   const session = await requireSession()
+  const documents = await listUserDocuments(session.user.id)
+  const storageReady = isR2Configured()
+  const missingStorageEnv = getMissingR2EnvNames()
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
@@ -35,17 +41,32 @@ export default async function DashboardPage() {
           </form>
         </div>
       </div>
-      <div className="flex flex-col gap-4">
-        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-          Open the editor to change existing PDF text, then export and reload to
-          confirm the edit is stored in the file.
-        </p>
-        <Link
-          href="/editor"
-          className={cn(buttonVariants({ variant: "glow" }), "w-fit")}
-        >
-          Open editor
-        </Link>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <h2 className="font-heading text-xl font-semibold tracking-tight">
+            Documents
+          </h2>
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
+            Upload a PDF, edit the real text in the editor, then save and reopen
+            it to confirm your changes persisted.
+          </p>
+        </div>
+        {storageReady ? null : (
+          <Alert>
+            <AlertTitle>File storage is not configured</AlertTitle>
+            <AlertDescription>
+              Missing {missingStorageEnv.join(", ")}. Restart the dev server
+              after changing .env. The R2 bucket also needs CORS allowing PUT
+              and GET from this app.
+            </AlertDescription>
+          </Alert>
+        )}
+        <UploadDocumentButton disabled={!storageReady} />
+        {documents.length === 0 ? (
+          <EmptyDocuments />
+        ) : (
+          <DocumentList documents={documents} />
+        )}
       </div>
     </div>
   )

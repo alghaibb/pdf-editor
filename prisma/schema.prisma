@@ -13,15 +13,16 @@ datasource db {
 }
 
 model User {
-  id            String    @id
+  id            String     @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean    @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
   sessions      Session[]
   accounts      Account[]
+  documents     Document[]
 
   @@unique([email])
   @@map("user")
@@ -73,4 +74,21 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Document {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  storageKey     String   @unique
+  size           Int
+  mimeType       String
+  currentVersion Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, updatedAt])
+  @@map("document")
 }

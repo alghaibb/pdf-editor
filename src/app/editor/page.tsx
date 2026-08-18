@@ -1,15 +1,8 @@
-import type { Metadata } from "next"
+import { redirect } from "next/navigation"
 
 import { requireSession } from "@/lib/auth/session"
-import { PdfEditor } from "@/app/editor/_components/pdf-editor"
 
-export const metadata: Metadata = {
-  title: "Editor",
-  description: "Edit existing PDF text in the browser.",
-}
-
-export default async function EditorPage() {
+export default async function EditorIndexPage() {
   await requireSession()
-
-  return <PdfEditor licenseKey={process.env.APRYSE_LICENSE_KEY} />
+  redirect("/dashboard")
 }

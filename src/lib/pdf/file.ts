@@ -1,4 +1,4 @@
-import { MAX_PDF_SIZE_BYTES, PDF_MAGIC } from "@/lib/webviewer/constants"
+import { MAX_PDF_SIZE_BYTES, PDF_MAGIC } from "@/lib/pdf/constants"
 
 export type PdfFileErrorCode =
   | "NOT_PDF"
@@ -21,9 +21,9 @@ export function pdfFileErrorMessage(code: PdfFileErrorCode): string {
     case "NOT_PDF":
       return "That file is not a valid PDF."
     case "TOO_LARGE":
-      return "That PDF is too large to open in the editor."
+      return "That PDF is too large. Use a file of 50 MB or less."
     case "EMPTY":
-      return "Choose a PDF file to open."
+      return "Choose a PDF file to upload."
     case "UNREADABLE":
       return "The file could not be read."
   }
