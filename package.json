@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "copy-webviewer": "node scripts/copy-webviewer.mjs",
+    "generate-sample-pdf": "node scripts/generate-sample-pdf.mjs",
+    "dev": "pnpm copy-webviewer && pnpm generate-sample-pdf && next dev",
+    "build": "pnpm copy-webviewer && pnpm generate-sample-pdf && next build",
     "start": "next start",
     "lint": "eslint"
   },
