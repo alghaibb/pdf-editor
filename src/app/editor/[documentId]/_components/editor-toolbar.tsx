@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { DownloadIcon, RotateCcwIcon } from "lucide-react"
+import { DownloadIcon, SaveIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -9,41 +10,41 @@ import { buttonVariants } from "@/components/ui/button"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { cn } from "@/lib/utils"
 import { useEditorStore } from "@/stores/editor-store"
-import { OpenPdfButton } from "@/app/editor/_components/open-pdf-button"
-import { SaveStatus } from "@/app/editor/_components/save-status"
+import { SaveStatus } from "./save-status"
 
 type EditorToolbarProps = {
-  onOpen: (file: File) => Promise<void>
-  onExportAndReload: () => Promise<void>
+  onSave: () => Promise<void>
   onDownload: () => Promise<void>
 }
 
-export function EditorToolbar({
-  onOpen,
-  onExportAndReload,
-  onDownload,
-}: EditorToolbarProps) {
+export function EditorToolbar({ onSave, onDownload }: EditorToolbarProps) {
   const fileName = useEditorStore((state) => state.fileName)
   const isReady = useEditorStore((state) => state.isReady)
-  const isExporting = useEditorStore((state) => state.isExporting)
+  const isDirty = useEditorStore((state) => state.isDirty)
+  const isSaving = useEditorStore((state) => state.isSaving)
+  const [isDownloading, setIsDownloading] = useState(false)
 
-  async function handleExportAndReload() {
+  async function handleSave() {
     try {
-      await onExportAndReload()
-      toast.success("Exported and reloaded. Confirm your edit is still there.")
+      await onSave()
+      toast.success("PDF saved.")
     } catch (error) {
-      console.error("Failed to export and reload PDF:", error)
-      toast.error("Could not export the PDF.")
+      console.error("Failed to save PDF:", error)
+      toast.error("Could not save the PDF.")
     }
   }
 
   async function handleDownload() {
+    setIsDownloading(true)
+
     try {
       await onDownload()
       toast.success("PDF downloaded.")
     } catch (error) {
       console.error("Failed to download PDF:", error)
       toast.error("Could not download the PDF.")
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -65,28 +66,27 @@ export function EditorToolbar({
         <div className="sm:hidden">
           <SaveStatus />
         </div>
-        <OpenPdfButton disabled={!isReady || isExporting} onOpen={onOpen} />
         <LoadingButton
           type="button"
           variant="outline"
-          loading={isExporting}
-          loadingText="Exporting..."
-          disabled={!isReady}
-          onClick={handleExportAndReload}
-        >
-          <RotateCcwIcon data-icon="inline-start" />
-          Export & reload
-        </LoadingButton>
-        <LoadingButton
-          type="button"
-          variant="glow"
-          loading={isExporting}
-          loadingText="Saving..."
-          disabled={!isReady}
+          loading={isDownloading}
+          loadingText="Downloading..."
+          disabled={!isReady || isSaving}
           onClick={handleDownload}
         >
           <DownloadIcon data-icon="inline-start" />
           Download
+        </LoadingButton>
+        <LoadingButton
+          type="button"
+          variant="glow"
+          loading={isSaving}
+          loadingText="Saving..."
+          disabled={!isReady || isDownloading || !isDirty}
+          onClick={handleSave}
+        >
+          <SaveIcon data-icon="inline-start" />
+          Save
         </LoadingButton>
         <ThemeToggle />
         <Link

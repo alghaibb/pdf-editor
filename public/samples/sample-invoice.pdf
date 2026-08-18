@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
 endobj
 4 0 obj
-<< /Length 231 >>
+<< /Length 225 >>
 stream
 BT
 /F1 22 Tf
@@ -21,7 +21,7 @@ BT
 0 -24 Td
 (Click the date above and change it.) Tj
 0 -20 Td
-(Then use Export and reload to confirm the edit stayed in the PDF.) Tj
+(Then save the PDF and reopen it to confirm the edit stayed.) Tj
 ET
 endstream
 endobj
@@ -35,9 +35,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000000523 00000 n 
+0000000517 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-593
+587
 %%EOF

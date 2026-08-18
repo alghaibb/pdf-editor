@@ -15,7 +15,7 @@ function buildPdf() {
     "PDF Editor sample",
     "Invoice Date: 15 August 2026",
     "Click the date above and change it.",
-    "Then use Export and reload to confirm the edit stayed in the PDF.",
+    "Then save the PDF and reopen it to confirm the edit stayed.",
   ]
 
   const contentStream = [

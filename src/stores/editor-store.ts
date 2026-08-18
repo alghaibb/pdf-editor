@@ -1,49 +1,51 @@
 import { create } from "zustand"
 
-export type EditorSaveStatus = "saved" | "unsaved" | "exporting" | "failed"
+export type EditorSaveStatus = "saved" | "unsaved" | "saving" | "failed"
 
 type EditorState = {
+  documentId: string | null
   fileName: string
   isReady: boolean
   isDirty: boolean
-  isExporting: boolean
+  isSaving: boolean
   saveStatus: EditorSaveStatus
   errorMessage: string | null
-  setFileName: (fileName: string) => void
+  setDocument: (documentId: string, fileName: string) => void
   setReady: (isReady: boolean) => void
   markDirty: () => void
   markSaved: () => void
-  setExporting: (isExporting: boolean) => void
+  setSaving: (isSaving: boolean) => void
   setError: (message: string | null) => void
   reset: () => void
 }
 
 const initialState = {
-  fileName: "sample-invoice.pdf",
+  documentId: null,
+  fileName: "",
   isReady: false,
   isDirty: false,
-  isExporting: false,
+  isSaving: false,
   saveStatus: "saved" as const,
   errorMessage: null,
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
   ...initialState,
-  setFileName: (fileName) => set({ fileName }),
+  setDocument: (documentId, fileName) => set({ documentId, fileName }),
   setReady: (isReady) => set({ isReady }),
   markDirty: () => set({ isDirty: true, saveStatus: "unsaved" }),
   markSaved: () =>
-    set({ isDirty: false, saveStatus: "saved", isExporting: false }),
-  setExporting: (isExporting) =>
+    set({ isDirty: false, saveStatus: "saved", isSaving: false }),
+  setSaving: (isSaving) =>
     set({
-      isExporting,
-      saveStatus: isExporting ? "exporting" : "unsaved",
+      isSaving,
+      saveStatus: isSaving ? "saving" : "unsaved",
     }),
   setError: (errorMessage) =>
     set({
       errorMessage,
       saveStatus: errorMessage ? "failed" : "unsaved",
-      isExporting: false,
+      isSaving: false,
     }),
   reset: () => set(initialState),
 }))

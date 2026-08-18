@@ -5,17 +5,28 @@ import { useEffect, useRef } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useEditorStore } from "@/stores/editor-store"
-import { EditorToolbar } from "@/app/editor/_components/editor-toolbar"
-import { useWebViewer } from "@/app/editor/_hooks/use-webviewer"
+import { EditorToolbar } from "./editor-toolbar"
+import { useWebViewer } from "../_hooks/use-webviewer"
 
 type PdfEditorProps = {
+  documentId: string
+  fileName: string
+  downloadUrl: string
   licenseKey?: string
 }
 
-export function PdfEditor({ licenseKey }: PdfEditorProps) {
+export function PdfEditor({
+  documentId,
+  fileName,
+  downloadUrl,
+  licenseKey,
+}: PdfEditorProps) {
   const viewerRef = useRef<HTMLDivElement>(null)
-  const { openFile, exportAndReload, downloadPdf } = useWebViewer(viewerRef, {
+  const { saveDocument, downloadPdf } = useWebViewer(viewerRef, {
     licenseKey,
+    documentId,
+    fileName,
+    downloadUrl,
   })
   const isReady = useEditorStore((state) => state.isReady)
   const errorMessage = useEditorStore((state) => state.errorMessage)
@@ -36,11 +47,7 @@ export function PdfEditor({ licenseKey }: PdfEditorProps) {
 
   return (
     <div className="flex h-dvh min-h-0 flex-col bg-background">
-      <EditorToolbar
-        onOpen={openFile}
-        onExportAndReload={exportAndReload}
-        onDownload={downloadPdf}
-      />
+      <EditorToolbar onSave={saveDocument} onDownload={downloadPdf} />
       <div className="relative min-h-0 flex-1">
         {!isReady ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">

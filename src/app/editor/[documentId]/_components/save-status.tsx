@@ -5,7 +5,7 @@ import { useEditorStore, type EditorSaveStatus } from "@/stores/editor-store"
 const STATUS_LABEL: Record<EditorSaveStatus, string> = {
   saved: "Saved",
   unsaved: "Unsaved changes",
-  exporting: "Saving...",
+  saving: "Saving...",
   failed: "Save failed",
 }
 

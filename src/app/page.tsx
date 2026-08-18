@@ -61,10 +61,10 @@ export default async function HomePage() {
           <div className="flex flex-wrap gap-3">
             {session ? (
               <Link
-                href="/editor"
+                href="/dashboard"
                 className={cn(buttonVariants({ size: "lg", variant: "glow" }))}
               >
-                Open editor
+                Open dashboard
               </Link>
             ) : (
               <>

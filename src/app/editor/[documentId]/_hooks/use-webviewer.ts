@@ -3,22 +3,26 @@
 import { useEffect, useRef } from "react"
 import type { WebViewerInstance } from "@pdftron/webviewer"
 
-import { useEditorStore } from "@/stores/editor-store"
 import {
-  SAMPLE_PDF_NAME,
-  SAMPLE_PDF_PATH,
-  WEBVIEWER_PATH,
-} from "@/lib/webviewer/constants"
-import { downloadBlob, exportPdfBlob } from "@/app/editor/_lib/editor-utils"
-import { assertPdfFile } from "@/app/editor/_lib/pdf-file"
+  completeDocumentUpload,
+  DocumentApiError,
+  putPdfToSignedUrl,
+  requestSaveUrl,
+} from "@/lib/documents/browser"
+import { WEBVIEWER_PATH } from "@/lib/webviewer/constants"
+import { useEditorStore } from "@/stores/editor-store"
+import { downloadBlob, exportPdfBlob } from "../_lib/editor-utils"
 
 type UseWebViewerOptions = {
   licenseKey?: string
+  documentId: string
+  fileName: string
+  downloadUrl: string
 }
 
 export function useWebViewer(
   viewerElementRef: React.RefObject<HTMLDivElement | null>,
-  { licenseKey }: UseWebViewerOptions
+  { licenseKey, documentId, fileName, downloadUrl }: UseWebViewerOptions
 ) {
   const instanceRef = useRef<WebViewerInstance | null>(null)
   const ignoreDirtyRef = useRef(false)
@@ -32,9 +36,11 @@ export function useWebViewer(
     let isDisposed = false
     let instance: WebViewerInstance | undefined
 
+    ignoreDirtyRef.current = true
+
     const store = useEditorStore.getState()
     store.reset()
-    store.setFileName(SAMPLE_PDF_NAME)
+    store.setDocument(documentId, fileName)
 
     void import("@pdftron/webviewer")
       .then(async ({ default: WebViewer }) => {
@@ -46,9 +52,12 @@ export function useWebViewer(
           {
             path: WEBVIEWER_PATH,
             licenseKey: licenseKey || undefined,
-            initialDoc: SAMPLE_PDF_PATH,
-            filename: SAMPLE_PDF_NAME,
+            initialDoc: downloadUrl,
+            filename: fileName,
+            extension: "pdf",
             enableFilePicker: false,
+            // Signed R2 URLs do not expose Content-Range, so skip range requests.
+            streaming: false,
           },
           viewerElementRef.current
         )
@@ -111,47 +120,39 @@ export function useWebViewer(
         console.error("Failed to dispose WebViewer:", error)
       })
     }
-  }, [licenseKey, viewerElementRef])
+  }, [documentId, downloadUrl, fileName, licenseKey, viewerElementRef])
 
-  async function openFile(file: File) {
+  async function saveDocument() {
     const instance = instanceRef.current
     if (!instance) {
       throw new Error("The editor is still loading.")
     }
 
-    await assertPdfFile(file)
-    ignoreDirtyRef.current = true
-    useEditorStore.getState().setFileName(file.name)
-    useEditorStore.getState().setReady(false)
-    await instance.UI.loadDocument(file, {
-      filename: file.name,
-      extension: "pdf",
-    })
-  }
+    const { setSaving, setError, markSaved } = useEditorStore.getState()
 
-  async function exportAndReload() {
-    const instance = instanceRef.current
-    if (!instance) {
-      throw new Error("The editor is still loading.")
-    }
-
-    const { fileName, setExporting, setError } = useEditorStore.getState()
-
-    setExporting(true)
+    setSaving(true)
     ignoreDirtyRef.current = true
 
     try {
       const blob = await exportPdfBlob(instance)
-      useEditorStore.getState().setReady(false)
-      await instance.UI.loadDocument(blob, {
-        filename: fileName,
-        extension: "pdf",
+      const { uploadUrl, version } = await requestSaveUrl(documentId, blob.size)
+      await putPdfToSignedUrl(uploadUrl, blob)
+      await completeDocumentUpload({
+        documentId,
+        size: blob.size,
+        version,
       })
+      markSaved()
     } catch (error) {
-      console.error("Failed to export and reload PDF:", error)
-      ignoreDirtyRef.current = false
-      setError("Export failed. Try again.")
+      console.error("Failed to save PDF:", error)
+      const message =
+        error instanceof DocumentApiError
+          ? error.message
+          : "Save failed. Try again."
+      setError(message)
       throw error
+    } finally {
+      ignoreDirtyRef.current = false
     }
   }
 
@@ -161,25 +162,19 @@ export function useWebViewer(
       throw new Error("The editor is still loading.")
     }
 
-    const { fileName, setExporting, markSaved, setError } =
-      useEditorStore.getState()
-
-    setExporting(true)
+    const { fileName: currentFileName } = useEditorStore.getState()
 
     try {
       const blob = await exportPdfBlob(instance)
-      downloadBlob(blob, fileName)
-      markSaved()
+      downloadBlob(blob, currentFileName)
     } catch (error) {
       console.error("Failed to download PDF:", error)
-      setError("Download failed. Try again.")
       throw error
     }
   }
 
   return {
-    openFile,
-    exportAndReload,
+    saveDocument,
     downloadPdf,
   }
 }
