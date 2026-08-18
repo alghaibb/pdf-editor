@@ -59,6 +59,7 @@ export async function listUserDocuments(userId: string) {
     select: {
       id: true,
       name: true,
+      updatedAt: true,
     },
   })
 }
