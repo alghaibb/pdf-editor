@@ -46,9 +46,9 @@ export function PdfEditor({
   }, [])
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col bg-background">
+    <div className="flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden bg-background">
       <EditorToolbar onSave={saveDocument} onDownload={downloadPdf} />
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         {!isReady ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
             <div className="flex w-full max-w-sm flex-col gap-3 px-6">
@@ -66,7 +66,7 @@ export function PdfEditor({
             </Alert>
           </div>
         ) : null}
-        <div ref={viewerRef} className="h-full w-full" />
+        <div ref={viewerRef} className="h-full min-h-0 w-full min-w-0" />
       </div>
     </div>
   )

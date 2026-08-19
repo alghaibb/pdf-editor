@@ -27,7 +27,7 @@ function LoadingButton({
       {loading ? (
         <>
           <Loader2Icon className="animate-spin" data-icon="inline-start" />
-          <span>{loadingText ?? children}</span>
+          {loadingText ? <span>{loadingText}</span> : null}
         </>
       ) : (
         children
