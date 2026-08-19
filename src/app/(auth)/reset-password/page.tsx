@@ -1,3 +1,4 @@
+import { Suspense, type ReactNode } from "react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import type { Metadata } from "next"
@@ -16,18 +17,7 @@ type ResetPasswordPageProps = {
   searchParams: Promise<{ email?: string }>
 }
 
-export default async function ResetPasswordPage({
-  searchParams,
-}: ResetPasswordPageProps) {
-  await redirectIfAuthenticated()
-
-  const params = await searchParams
-  const parsedEmail = emailSchema.safeParse(params.email)
-
-  if (!parsedEmail.success) {
-    redirect("/forgot-password")
-  }
-
+function ResetPasswordShell({ children }: { children?: ReactNode }) {
   return (
     <AuthShell
       title="Reset password"
@@ -44,7 +34,36 @@ export default async function ResetPasswordPage({
         </>
       }
     >
-      <ResetPasswordForm email={parsedEmail.data} />
+      {children}
     </AuthShell>
+  )
+}
+
+export default function ResetPasswordPage({
+  searchParams,
+}: ResetPasswordPageProps) {
+  return (
+    <Suspense fallback={<ResetPasswordShell />}>
+      <ResetPasswordContent searchParams={searchParams} />
+    </Suspense>
+  )
+}
+
+async function ResetPasswordContent({
+  searchParams,
+}: ResetPasswordPageProps) {
+  await redirectIfAuthenticated()
+
+  const params = await searchParams
+  const parsedEmail = emailSchema.safeParse(params.email)
+
+  if (!parsedEmail.success) {
+    redirect("/forgot-password")
+  }
+
+  return (
+    <ResetPasswordShell>
+      <ResetPasswordForm email={parsedEmail.data} />
+    </ResetPasswordShell>
   )
 }

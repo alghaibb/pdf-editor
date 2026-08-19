@@ -4,6 +4,7 @@ import {
   requireApiSession,
   unauthorizedResponse,
 } from "@/lib/api/session"
+import { revalidateUserDocuments } from "@/lib/documents/cache-tags"
 import {
   getOwnedDocument,
   markDocumentVersionSaved,
@@ -102,6 +103,8 @@ export async function POST(
       version: parsed.data.version,
       size: parsed.data.size,
     })
+
+    revalidateUserDocuments(session.user.id)
 
     return apiSuccess({
       documentId: saved.id,

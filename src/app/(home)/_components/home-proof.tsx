@@ -1,6 +1,10 @@
+import { cacheLife } from "next/cache"
+
 import { HomeContrast } from "@/app/(home)/_components/home-contrast"
 
-export function HomeProof() {
+export async function HomeProof() {
+  "use cache"
+  cacheLife("max")
   return (
     <section className="px-5 py-20 sm:px-8 sm:py-24 lg:px-12 lg:py-28">
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">

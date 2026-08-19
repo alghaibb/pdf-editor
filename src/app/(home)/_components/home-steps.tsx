@@ -1,3 +1,4 @@
+import { cacheLife } from "next/cache"
 import { FileUpIcon, PenLineIcon, SaveIcon } from "lucide-react"
 
 const STEPS = [
@@ -21,7 +22,10 @@ const STEPS = [
   },
 ] as const
 
-export function HomeSteps() {
+export async function HomeSteps() {
+  "use cache"
+  cacheLife("max")
+
   return (
     <section
       id="how-it-works"

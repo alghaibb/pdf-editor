@@ -1,75 +1,29 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
-import Link from "next/link"
+import { cacheLife, cacheTag } from "next/cache"
+import { redirect } from "next/navigation"
 
-import { SignOutButton } from "@/components/sign-out-button"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { signOutAction } from "@/lib/auth/actions"
-import { requireSession } from "@/lib/auth/session"
+import { getSession } from "@/lib/auth/session"
+import { AUTH_STATE_TAG } from "@/lib/auth/cache-tags"
+import { userDocumentsTag } from "@/lib/documents/cache-tags"
 import { listUserDocuments } from "@/lib/documents/queries"
 import { isR2Configured, getMissingR2EnvNames } from "@/lib/r2/env"
-import { DashboardIndex } from "@/app/dashboard/_components/dashboard-index"
-import { DocumentList } from "@/app/dashboard/_components/document-list"
-import { EmptyDocuments } from "@/app/dashboard/_components/empty-documents"
-import { UploadDocumentButton } from "@/app/dashboard/_components/upload-document-button"
+import { DashboardFolioSkeleton } from "@/app/dashboard/_components/dashboard-folio-skeleton"
+import { DocumentLibrary } from "@/app/dashboard/_components/document-library"
 
 export const metadata: Metadata = {
   title: "Dashboard",
   description: "Your PDF Editor dashboard.",
 }
 
-export default async function DashboardPage() {
-  const session = await requireSession()
-  const documents = await listUserDocuments(session.user.id)
+export default function DashboardPage() {
   const storageReady = isR2Configured()
   const missingStorageEnv = getMissingR2EnvNames()
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
-      <div className="flex items-start justify-between gap-6">
-        <div className="flex min-w-0 flex-col gap-2">
-          <Link
-            href="/"
-            className="font-heading w-fit text-xs font-semibold tracking-[0.22em] uppercase"
-          >
-            PDF Editor
-          </Link>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Welcome, {session.user.name}
-          </h1>
-          <p className="text-sm text-muted-foreground">{session.user.email}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="hidden items-center gap-2 md:flex">
-            <Link
-              href="/"
-              className="text-xs font-semibold tracking-widest text-muted-foreground uppercase underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Home
-            </Link>
-            <ThemeToggle />
-            <form action={signOutAction}>
-              <SignOutButton />
-            </form>
-          </div>
-          <div className="md:hidden">
-            <DashboardIndex
-              userName={session.user.name}
-              userEmail={session.user.email}
-            />
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <h2 className="font-heading text-xl font-semibold tracking-tight">
-            Documents
-          </h2>
-          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Upload a PDF, edit the real text in the editor, then save and reopen
-            it to confirm your changes persisted.
-          </p>
-        </div>
+    <section className="px-5 pb-24 sm:px-8 lg:px-12 lg:pb-32">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
         {storageReady ? null : (
           <Alert>
             <AlertTitle>File storage is not configured</AlertTitle>
@@ -80,13 +34,38 @@ export default async function DashboardPage() {
             </AlertDescription>
           </Alert>
         )}
-        <UploadDocumentButton disabled={!storageReady} />
-        {documents.length === 0 ? (
-          <EmptyDocuments />
-        ) : (
-          <DocumentList documents={documents} />
-        )}
+        <Suspense fallback={<DashboardFolioSkeleton />}>
+          <DashboardDocuments storageReady={storageReady} />
+        </Suspense>
       </div>
-    </div>
+    </section>
+  )
+}
+
+async function DashboardDocuments({ storageReady }: { storageReady: boolean }) {
+  "use cache: private"
+  cacheLife("hours")
+
+  const session = await getSession()
+
+  if (!session) {
+    redirect("/sign-in")
+  }
+
+  cacheTag(AUTH_STATE_TAG)
+  cacheTag(userDocumentsTag(session.user.id))
+
+  const documents = await listUserDocuments(session.user.id)
+
+  return (
+    <DocumentLibrary
+      userId={session.user.id}
+      storageReady={storageReady}
+      documents={documents.map((document) => ({
+        id: document.id,
+        name: document.name,
+        updatedAt: document.updatedAt.toISOString(),
+      }))}
+    />
   )
 }

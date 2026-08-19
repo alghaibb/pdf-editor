@@ -4,6 +4,7 @@ import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { auth } from "@/lib/auth"
+import { revalidateAuthState } from "@/lib/auth/cache-tags"
 
 export async function signOutAction() {
   try {
@@ -14,5 +15,6 @@ export async function signOutAction() {
     console.error("Sign-out failed:", error)
   }
 
+  revalidateAuthState()
   redirect("/sign-in")
 }

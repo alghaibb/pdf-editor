@@ -1,46 +1,88 @@
 export class DocumentApiError extends Error {
-  constructor(message: string) {
+  readonly status: number
+  readonly code?: string
+
+  constructor(message: string, status = 500, code?: string) {
     super(message)
     this.name = "DocumentApiError"
+    this.status = status
+    this.code = code
   }
 }
 
 type ApiErrorPayload = {
   error?: {
+    code?: unknown
     message?: unknown
   }
 }
 
-export async function readApiErrorMessage(
-  response: Response,
-  fallback: string
-) {
+async function readApiError(response: Response, fallback: string) {
   try {
     const data = (await response.json()) as ApiErrorPayload
     const message = data.error?.message
+    const code = data.error?.code
 
-    if (typeof message === "string" && message.length > 0) {
-      return message
+    return {
+      message:
+        typeof message === "string" && message.length > 0 ? message : fallback,
+      code: typeof code === "string" ? code : undefined,
     }
-
-    return fallback
   } catch (error) {
     console.error("Failed to read API error response:", error)
-    return fallback
+    return {
+      message: fallback,
+      code: undefined,
+    }
   }
 }
 
 async function parseJson<T>(response: Response, fallback: string): Promise<T> {
   if (!response.ok) {
-    throw new DocumentApiError(await readApiErrorMessage(response, fallback))
+    const { message, code } = await readApiError(response, fallback)
+    throw new DocumentApiError(message, response.status, code)
   }
 
   try {
     return (await response.json()) as T
   } catch (error) {
     console.error("Failed to parse API response:", error)
-    throw new DocumentApiError(fallback)
+    throw new DocumentApiError(fallback, response.status)
   }
+}
+
+export function isDocumentNotFoundError(error: unknown) {
+  return (
+    error instanceof DocumentApiError &&
+    (error.status === 404 || error.code === "DOCUMENT_NOT_FOUND")
+  )
+}
+
+export function isUnauthorizedDocumentError(error: unknown) {
+  return (
+    error instanceof DocumentApiError &&
+    (error.status === 401 || error.code === "UNAUTHORIZED")
+  )
+}
+
+export function isValidationDocumentError(error: unknown) {
+  return (
+    error instanceof DocumentApiError &&
+    (error.status === 400 || error.code === "VALIDATION_ERROR")
+  )
+}
+
+export function isTransientDocumentError(error: unknown) {
+  if (!(error instanceof DocumentApiError)) {
+    return true
+  }
+
+  return (
+    error.status >= 500 ||
+    error.status === 408 ||
+    error.status === 429 ||
+    error.status === 503
+  )
 }
 
 export async function requestUploadUrl(input: {
@@ -101,9 +143,26 @@ export async function completeDocumentUpload(input: {
   }>(response, "The PDF uploaded but could not be saved.")
 }
 
+export async function renameDocument(documentId: string, name: string) {
+  const response = await fetch(`/api/documents/${documentId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+    keepalive: true,
+  })
+
+  return parseJson<{
+    documentId: string
+    name: string
+  }>(response, "The document could not be renamed.")
+}
+
 export async function deleteDocument(documentId: string) {
   const response = await fetch(`/api/documents/${documentId}`, {
     method: "DELETE",
+    keepalive: true,
   })
 
   return parseJson<{

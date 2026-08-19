@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -5,6 +6,7 @@ import { requireSession } from "@/lib/auth/session"
 import { getOwnedDocument } from "@/lib/documents/queries"
 import { createCurrentPdfDownloadUrl } from "@/lib/r2/objects"
 import { documentIdSchema } from "@/schemas/documents"
+import { EditorLoading } from "./_components/editor-loading"
 import { PdfEditor } from "./_components/pdf-editor"
 
 export const metadata: Metadata = {
@@ -12,7 +14,17 @@ export const metadata: Metadata = {
   description: "Edit existing PDF text in the browser.",
 }
 
-export default async function EditorDocumentPage({
+export default function EditorDocumentPage(
+  props: PageProps<"/editor/[documentId]">
+) {
+  return (
+    <Suspense fallback={<EditorLoading />}>
+      <EditorDocument {...props} />
+    </Suspense>
+  )
+}
+
+async function EditorDocument({
   params,
 }: PageProps<"/editor/[documentId]">) {
   const session = await requireSession()

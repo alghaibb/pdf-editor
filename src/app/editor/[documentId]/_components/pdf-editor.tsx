@@ -50,12 +50,11 @@ export function PdfEditor({
       <EditorToolbar onSave={saveDocument} onDownload={downloadPdf} />
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         {!isReady ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
-            <div className="flex w-full max-w-sm flex-col gap-3 px-6">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-[70vh] w-full" />
-              <p className="text-sm text-muted-foreground">Loading PDF editor…</p>
-            </div>
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
+            <Skeleton
+              className="h-[min(90%,52rem)] w-full max-w-3xl"
+              aria-label="Loading PDF"
+            />
           </div>
         ) : null}
         {errorMessage ? (
