@@ -36,5 +36,14 @@ export const completeDocumentSchema = signedUploadSizeSchema.extend({
   version: z.number().int().positive(),
 })
 
+export const renameDocumentSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_DOCUMENT_NAME_LENGTH + 4),
+})
+
 export type CreateUploadUrlInput = z.infer<typeof createUploadUrlSchema>
 export type CompleteDocumentInput = z.infer<typeof completeDocumentSchema>
+export type RenameDocumentInput = z.infer<typeof renameDocumentSchema>

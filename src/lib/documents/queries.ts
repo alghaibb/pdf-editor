@@ -1,11 +1,13 @@
 import "server-only"
 
 import { randomUUID } from "node:crypto"
+import { cacheLife, cacheTag } from "next/cache"
 
 import prisma from "@/lib/prisma"
 import { PDF_MIME_TYPE } from "@/lib/pdf/constants"
 import { sanitizeDocumentName } from "@/lib/pdf/name"
 import { documentStoragePrefix } from "@/lib/r2/keys"
+import { userDocumentsTag } from "@/lib/documents/cache-tags"
 
 export async function createDocumentRecord(input: {
   userId: string
@@ -46,6 +48,10 @@ export async function getOwnedDocument(documentId: string, userId: string) {
 }
 
 export async function listUserDocuments(userId: string) {
+  "use cache"
+  cacheLife("hours")
+  cacheTag(userDocumentsTag(userId))
+
   return prisma.document.findMany({
     where: {
       userId,
@@ -103,6 +109,45 @@ export async function markDocumentVersionSaved(input: {
   }
 
   return document
+}
+
+export async function renameOwnedDocument(input: {
+  documentId: string
+  userId: string
+  name: string
+}) {
+  const document = await getOwnedDocument(input.documentId, input.userId)
+
+  if (!document) {
+    return null
+  }
+
+  const name = sanitizeDocumentName(input.name)
+
+  if (name === document.name) {
+    return document
+  }
+
+  const result = await prisma.document.updateMany({
+    where: {
+      id: input.documentId,
+      userId: input.userId,
+    },
+    data: {
+      name,
+      // Preserve last-edited order so a rename does not jump the file to the top.
+      updatedAt: document.updatedAt,
+    },
+  })
+
+  if (result.count !== 1) {
+    throw new Error("Document could not be renamed.")
+  }
+
+  return {
+    ...document,
+    name,
+  }
 }
 
 export async function deleteOwnedDocument(input: {

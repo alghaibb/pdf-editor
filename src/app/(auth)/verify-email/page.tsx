@@ -1,3 +1,4 @@
+import { Suspense, type ReactNode } from "react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import type { Metadata } from "next"
@@ -16,18 +17,7 @@ type VerifyEmailPageProps = {
   searchParams: Promise<{ email?: string }>
 }
 
-export default async function VerifyEmailPage({
-  searchParams,
-}: VerifyEmailPageProps) {
-  await redirectIfAuthenticated()
-
-  const params = await searchParams
-  const parsedEmail = emailSchema.safeParse(params.email)
-
-  if (!parsedEmail.success) {
-    redirect("/sign-up")
-  }
-
+function VerifyEmailShell({ children }: { children?: ReactNode }) {
   return (
     <AuthShell
       title="Verify email"
@@ -44,7 +34,34 @@ export default async function VerifyEmailPage({
         </>
       }
     >
-      <VerifyEmailForm email={parsedEmail.data} />
+      {children}
     </AuthShell>
+  )
+}
+
+export default function VerifyEmailPage({
+  searchParams,
+}: VerifyEmailPageProps) {
+  return (
+    <Suspense fallback={<VerifyEmailShell />}>
+      <VerifyEmailContent searchParams={searchParams} />
+    </Suspense>
+  )
+}
+
+async function VerifyEmailContent({ searchParams }: VerifyEmailPageProps) {
+  await redirectIfAuthenticated()
+
+  const params = await searchParams
+  const parsedEmail = emailSchema.safeParse(params.email)
+
+  if (!parsedEmail.success) {
+    redirect("/sign-up")
+  }
+
+  return (
+    <VerifyEmailShell>
+      <VerifyEmailForm email={parsedEmail.data} />
+    </VerifyEmailShell>
   )
 }

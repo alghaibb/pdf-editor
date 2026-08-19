@@ -1,10 +1,10 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import Link from "next/link";
 
 import { SignOutButton } from "@/components/sign-out-button";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogClose,
@@ -20,12 +20,6 @@ type DashboardIndexProps = {
   userName: string;
   userEmail: string;
 };
-
-const THEMES = [
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-  { id: "system", label: "System" },
-] as const;
 
 function CropMarksIcon({ className }: { className?: string }) {
   return (
@@ -52,8 +46,6 @@ function CropMarksIcon({ className }: { className?: string }) {
 }
 
 export function DashboardIndex({ userName, userEmail }: DashboardIndexProps) {
-  const { theme, setTheme } = useTheme();
-
   return (
     <Dialog>
       <DialogTrigger
@@ -124,8 +116,8 @@ export function DashboardIndex({ userName, userEmail }: DashboardIndexProps) {
                 Now
               </span>
             </div>
-            <div className="flex flex-col gap-4 border-t border-border py-5">
-              <div className="flex items-baseline gap-5">
+            <div className="flex items-center justify-between gap-4 border-t border-border py-5">
+              <div className="flex min-w-0 items-baseline gap-5">
                 <span className="font-mono text-[11px] tracking-[0.24em] text-muted-foreground">
                   03
                 </span>
@@ -133,19 +125,7 @@ export function DashboardIndex({ userName, userEmail }: DashboardIndexProps) {
                   Appearance
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2 pl-13">
-                {THEMES.map((option) => (
-                  <Button
-                    key={option.id}
-                    type="button"
-                    variant={theme === option.id ? "glow" : "outline"}
-                    size="sm"
-                    onClick={() => setTheme(option.id)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
+              <ThemeToggle variant="label" />
             </div>
             <form
               action={signOutAction}

@@ -5,8 +5,9 @@
   "scripts": {
     "copy-webviewer": "node scripts/copy-webviewer.mjs",
     "generate-sample-pdf": "node scripts/generate-sample-pdf.mjs",
+    "postinstall": "prisma generate",
     "dev": "pnpm copy-webviewer && pnpm generate-sample-pdf && next dev",
-    "build": "pnpm copy-webviewer && pnpm generate-sample-pdf && next build",
+    "build": "prisma generate && pnpm copy-webviewer && pnpm generate-sample-pdf && next build",
     "start": "next start",
     "lint": "eslint"
   },

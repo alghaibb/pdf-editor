@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: "Edit real PDF text in the browser, then save the actual file.",
 }
 
+export const instant = false
+
 export default async function HomePage() {
   const session = await getSession()
   const isAuthenticated = Boolean(session)

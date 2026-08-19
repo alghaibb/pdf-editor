@@ -10,7 +10,7 @@ export function DocumentUpdatedAt({ value }: DocumentUpdatedAtProps) {
   const formatted = format(new Date(value), "dd/MM/yyyy h:mm a")
 
   return (
-    <p className="truncate text-xs text-muted-foreground">
+    <p className="mt-2 truncate text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
       Updated {formatted}
     </p>
   )
