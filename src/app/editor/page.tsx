@@ -14,4 +14,5 @@ export default function EditorIndexPage() {
 async function EditorIndexRedirect() {
   await requireSession()
   redirect("/dashboard")
+  return null
 }
