@@ -27,8 +27,10 @@ export default function EditorDocumentPage(
 async function EditorDocument({
   params,
 }: PageProps<"/editor/[documentId]">) {
-  const session = await requireSession()
-  const { documentId } = await params
+  const [session, { documentId }] = await Promise.all([
+    requireSession(),
+    params,
+  ])
   const parsedId = documentIdSchema.safeParse(documentId)
 
   if (!parsedId.success) {

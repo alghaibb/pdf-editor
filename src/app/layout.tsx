@@ -1,31 +1,27 @@
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
-import { cn } from "@/lib/utils";
-import type { Metadata, Viewport } from "next";
-import {
-  Geist,
-  Geist_Mono,
-  Noto_Sans,
-  Playfair_Display,
-} from "next/font/google";
-import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
+import { cn } from "@/lib/utils"
+import type { Metadata, Viewport } from "next"
+import { Geist_Mono, Noto_Sans, Playfair_Display } from "next/font/google"
+import "./globals.css"
 
 const playfairDisplayHeading = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-heading",
-});
+  display: "swap",
+})
 
-const notoSans = Noto_Sans({ subsets: ["latin"], variable: "--font-sans" });
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const notoSans = Noto_Sans({
   subsets: ["latin"],
-});
+  variable: "--font-sans",
+  display: "swap",
+})
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: {
@@ -33,12 +29,12 @@ export const metadata: Metadata = {
     template: "%s | PDF Editor",
   },
   description: "Edit real PDF content in your browser.",
-};
+}
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-};
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -47,10 +43,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={cn(
         "h-full antialiased font-sans",
-        geistSans.variable,
         geistMono.variable,
         notoSans.variable,
-        playfairDisplayHeading.variable,
+        playfairDisplayHeading.variable
       )}
     >
       <body className="flex min-h-full flex-col">
@@ -65,5 +60,5 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </ThemeProvider>
       </body>
     </html>
-  );
+  )
 }

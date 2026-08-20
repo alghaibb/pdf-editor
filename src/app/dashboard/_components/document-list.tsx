@@ -53,6 +53,7 @@ export function DocumentList({
               <div className="flex shrink-0 items-center gap-2 sm:pb-0.5">
                 <Link
                   href={`/editor/${document.id}`}
+                  prefetch
                   className={cn(
                     buttonVariants({ variant: "glow", size: "sm" })
                   )}

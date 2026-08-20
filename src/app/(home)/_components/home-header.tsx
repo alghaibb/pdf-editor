@@ -45,6 +45,7 @@ export function HomeHeader({ isAuthenticated }: HomeHeaderProps) {
             <>
               <Link
                 href="/dashboard"
+                prefetch
                 className={cn(buttonVariants({ variant: "glow" }))}
               >
                 Dashboard

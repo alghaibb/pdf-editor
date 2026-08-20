@@ -54,6 +54,8 @@ export function UploadDocumentButton({
           mimeType: file.type || PDF_MIME_TYPE,
         })
 
+        void router.prefetch(`/editor/${documentId}`)
+
         await putPdfToSignedUrl(uploadUrl, file, setProgress)
         await completeDocumentUpload({
           documentId,

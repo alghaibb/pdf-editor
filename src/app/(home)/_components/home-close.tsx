@@ -23,6 +23,7 @@ export function HomeClose({ isAuthenticated }: HomeCloseProps) {
         {isAuthenticated ? (
           <Link
             href="/dashboard"
+            prefetch
             className={cn(
               buttonVariants({ size: "lg" }),
               "mt-10 bg-background text-foreground hover:bg-background/90"
