@@ -1,3 +1,4 @@
+import { rateLimitedResponse, isRateLimited } from "@/lib/api/rate-limit"
 import { apiError, apiSuccess } from "@/lib/api/response"
 import {
   handleStorageError,
@@ -14,6 +15,10 @@ export async function POST(request: Request) {
 
   if (!session) {
     return unauthorizedResponse()
+  }
+
+  if (isRateLimited(`upload:${session.user.id}`, 20, 60_000)) {
+    return rateLimitedResponse()
   }
 
   let json: unknown

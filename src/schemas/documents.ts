@@ -44,6 +44,10 @@ export const renameDocumentSchema = z.object({
     .max(MAX_DOCUMENT_NAME_LENGTH + 4),
 })
 
+export const restoreVersionSchema = z.object({
+  version: z.number().int().positive(),
+})
+
 export type CreateUploadUrlInput = z.infer<typeof createUploadUrlSchema>
 export type CompleteDocumentInput = z.infer<typeof completeDocumentSchema>
 export type RenameDocumentInput = z.infer<typeof renameDocumentSchema>

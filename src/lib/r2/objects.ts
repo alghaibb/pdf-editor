@@ -58,49 +58,80 @@ export async function verifyStoredPdf(key: string, expectedSize: number) {
   const client = getR2Client()
   const bucket = getR2BucketName()
 
-  const head = await client.send(
-    new HeadObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    })
-  )
+  // The size check and the magic-byte check are independent, so issue both
+  // R2 requests together. This runs on every save, so one round trip matters.
+  const [head, object] = await Promise.all([
+    client.send(
+      new HeadObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      })
+    ),
+    client.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Range: "bytes=0-4",
+      })
+    ),
+  ])
+
+  // Consume the 5-byte body before any throw so the connection is released.
+  const headerBytes = await object.Body?.transformToByteArray()
 
   if (head.ContentLength !== expectedSize) {
     throw new Error("Stored PDF size does not match the uploaded file.")
   }
-
-  const object = await client.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Range: "bytes=0-4",
-    })
-  )
-
-  const headerBytes = await object.Body?.transformToByteArray()
 
   if (!headerBytes || !hasPdfMagic(headerBytes)) {
     throw new Error("Stored object is not a PDF.")
   }
 }
 
-export async function promoteVersionToCurrent(
-  storageKey: string,
-  versionKey: string
-) {
+export async function copyPdfObject(sourceKey: string, destinationKey: string) {
   const client = getR2Client()
   const bucket = getR2BucketName()
-  const destinationKey = currentPdfKey(storageKey)
 
   await client.send(
     new CopyObjectCommand({
       Bucket: bucket,
-      CopySource: encodeURI(`${bucket}/${versionKey}`),
+      CopySource: encodeURI(`${bucket}/${sourceKey}`),
       Key: destinationKey,
       ContentType: PDF_MIME_TYPE,
       MetadataDirective: "REPLACE",
     })
   )
+}
+
+export async function promoteVersionToCurrent(
+  storageKey: string,
+  versionKey: string
+) {
+  await copyPdfObject(versionKey, currentPdfKey(storageKey))
+}
+
+export async function deletePdfObjects(keys: string[]) {
+  if (keys.length === 0) {
+    return
+  }
+
+  const client = getR2Client()
+  const bucket = getR2BucketName()
+
+  const result = await client.send(
+    new DeleteObjectsCommand({
+      Bucket: bucket,
+      Delete: {
+        Objects: keys.map((Key) => ({ Key })),
+        Quiet: true,
+      },
+    })
+  )
+
+  if (result.Errors && result.Errors.length > 0) {
+    console.error("Failed to delete stored PDF versions:", result.Errors)
+    throw new Error("Could not delete stored PDF versions.")
+  }
 }
 
 export async function deleteDocumentObjects(

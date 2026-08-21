@@ -24,7 +24,6 @@ export function HomeHero({ isAuthenticated }: HomeHeroProps) {
           {isAuthenticated ? (
             <Link
               href="/dashboard"
-              prefetch
               className={cn(buttonVariants({ size: "lg", variant: "glow" }))}
             >
               Open dashboard

@@ -11,6 +11,7 @@ import { listUserDocuments } from "@/lib/documents/queries"
 import { isR2Configured, getMissingR2EnvNames } from "@/lib/r2/env"
 import { DashboardFolioSkeleton } from "@/app/dashboard/_components/dashboard-folio-skeleton"
 import { DocumentLibrary } from "@/app/dashboard/_components/document-library"
+import { EditorAssetPrefetch } from "@/app/dashboard/_components/editor-asset-prefetch"
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -23,6 +24,7 @@ export default function DashboardPage() {
 
   return (
     <section className="px-5 pb-24 sm:px-8 lg:px-12 lg:pb-32">
+      <EditorAssetPrefetch />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
         {storageReady ? null : (
           <Alert>

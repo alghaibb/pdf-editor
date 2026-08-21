@@ -135,12 +135,48 @@ export async function completeDocumentUpload(input: {
       size: input.size,
       version: input.version,
     }),
+    // Saves finalize in the background after the upload; keepalive lets the
+    // request finish even if the user navigates away or closes the tab.
+    keepalive: true,
   })
 
   return parseJson<{
     documentId: string
     currentVersion: number
   }>(response, "The PDF uploaded but could not be saved.")
+}
+
+export type DocumentVersionSummary = {
+  version: number
+  size: number
+  createdAt: string
+}
+
+export async function fetchDocumentVersions(documentId: string) {
+  const response = await fetch(`/api/documents/${documentId}/versions`)
+
+  return parseJson<{
+    currentVersion: number
+    versions: DocumentVersionSummary[]
+  }>(response, "Could not load version history.")
+}
+
+export async function restoreDocumentVersion(
+  documentId: string,
+  version: number
+) {
+  const response = await fetch(`/api/documents/${documentId}/versions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ version }),
+  })
+
+  return parseJson<{
+    documentId: string
+    currentVersion: number
+  }>(response, "The version could not be restored.")
 }
 
 export async function renameDocument(documentId: string, name: string) {

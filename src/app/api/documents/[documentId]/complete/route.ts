@@ -1,3 +1,6 @@
+import { after } from "next/server"
+
+import { rateLimitedResponse, isRateLimited } from "@/lib/api/rate-limit"
 import { apiError, apiSuccess } from "@/lib/api/response"
 import {
   handleStorageError,
@@ -9,6 +12,7 @@ import {
   getOwnedDocument,
   markDocumentVersionSaved,
 } from "@/lib/documents/queries"
+import { pruneStoredVersions } from "@/lib/documents/versions"
 import { versionPdfKey } from "@/lib/r2/keys"
 import { promoteVersionToCurrent, verifyStoredPdf } from "@/lib/r2/objects"
 import { completeDocumentSchema, documentIdSchema } from "@/schemas/documents"
@@ -21,6 +25,10 @@ export async function POST(
 
   if (!session) {
     return unauthorizedResponse()
+  }
+
+  if (isRateLimited(`complete:${session.user.id}`, 30, 60_000)) {
+    return rateLimitedResponse()
   }
 
   const { documentId } = await params
@@ -105,6 +113,16 @@ export async function POST(
     })
 
     revalidateUserDocuments(session.user.id)
+
+    // Retention is housekeeping; run it after the response so saves return
+    // sooner, and swallow failures since the save itself already succeeded.
+    after(async () => {
+      try {
+        await pruneStoredVersions(document.id, document.storageKey)
+      } catch (error) {
+        console.error("Failed to prune old document versions:", error)
+      }
+    })
 
     return apiSuccess({
       documentId: saved.id,

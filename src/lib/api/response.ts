@@ -4,10 +4,12 @@ export type ApiErrorCode =
   | "UNAUTHORIZED"
   | "VALIDATION_ERROR"
   | "DOCUMENT_NOT_FOUND"
+  | "VERSION_NOT_FOUND"
   | "UPLOAD_INCOMPLETE"
   | "NOT_PDF"
   | "FILE_TOO_LARGE"
   | "STORAGE_NOT_CONFIGURED"
+  | "RATE_LIMITED"
   | "UNKNOWN"
 
 export type ApiErrorBody = {

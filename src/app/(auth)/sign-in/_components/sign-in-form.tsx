@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Controller, useForm } from "react-hook-form"
@@ -31,6 +32,12 @@ export function SignInForm() {
   })
 
   const formError = form.formState.errors.root?.message
+
+  useEffect(() => {
+    // The post-login destination has no visible Link on this page, so warm
+    // its static shell manually to make the redirect paint instantly.
+    router.prefetch("/dashboard")
+  }, [router])
 
   async function onSubmit(values: SignInInput) {
     form.clearErrors("root")

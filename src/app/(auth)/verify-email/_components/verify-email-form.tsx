@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -52,6 +52,12 @@ export function VerifyEmailForm({ email }: VerifyEmailFormProps) {
   })
 
   const formError = form.formState.errors.root?.message
+
+  useEffect(() => {
+    // The post-verification destination has no visible Link on this page,
+    // so warm its static shell manually for an instant redirect.
+    router.prefetch("/dashboard")
+  }, [router])
 
   async function onSubmit(values: VerifyEmailInput) {
     form.clearErrors("root")

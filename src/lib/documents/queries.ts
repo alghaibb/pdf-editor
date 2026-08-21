@@ -76,39 +76,113 @@ export async function markDocumentVersionSaved(input: {
   version: number
   size: number
 }) {
-  const result = await prisma.document.updateMany({
-    where: {
-      id: input.documentId,
-      userId: input.userId,
-    },
-    data: {
-      currentVersion: input.version,
-      size: input.size,
-    },
-  })
+  try {
+    // The ownership-scoped update runs first: if the document is not owned it
+    // throws and rolls back the version row. Upsert tolerates a duplicate
+    // completion request for the same version.
+    const [document] = await prisma.$transaction([
+      prisma.document.update({
+        where: {
+          id: input.documentId,
+          userId: input.userId,
+        },
+        data: {
+          currentVersion: input.version,
+          size: input.size,
+        },
+        select: {
+          id: true,
+          name: true,
+          currentVersion: true,
+          size: true,
+        },
+      }),
+      prisma.documentVersion.upsert({
+        where: {
+          documentId_version: {
+            documentId: input.documentId,
+            version: input.version,
+          },
+        },
+        create: {
+          documentId: input.documentId,
+          version: input.version,
+          size: input.size,
+        },
+        update: {
+          size: input.size,
+        },
+      }),
+    ])
 
-  if (result.count !== 1) {
+    return document
+  } catch (error) {
+    console.error("Failed to mark document version saved:", error)
     throw new Error("Document could not be updated.")
   }
+}
 
-  const document = await prisma.document.findFirst({
+export async function listDocumentVersions(documentId: string, userId: string) {
+  return prisma.documentVersion.findMany({
     where: {
-      id: input.documentId,
-      userId: input.userId,
+      documentId,
+      document: {
+        userId,
+      },
+    },
+    orderBy: {
+      version: "desc",
     },
     select: {
-      id: true,
-      name: true,
-      currentVersion: true,
+      version: true,
+      size: true,
+      createdAt: true,
+    },
+  })
+}
+
+export async function getDocumentVersion(documentId: string, version: number) {
+  return prisma.documentVersion.findUnique({
+    where: {
+      documentId_version: {
+        documentId,
+        version,
+      },
+    },
+    select: {
+      version: true,
       size: true,
     },
   })
+}
 
-  if (!document) {
-    throw new Error("Document could not be updated.")
-  }
+export async function findPrunableVersions(documentId: string, keep: number) {
+  return prisma.documentVersion.findMany({
+    where: {
+      documentId,
+    },
+    orderBy: {
+      version: "desc",
+    },
+    skip: keep,
+    select: {
+      version: true,
+    },
+  })
+}
 
-  return document
+export async function deleteVersionRecords(
+  documentId: string,
+  versions: number[]
+) {
+  await prisma.documentVersion.deleteMany({
+    where: {
+      documentId,
+      version: {
+        in: versions,
+      },
+    },
+  })
 }
 
 export async function renameOwnedDocument(input: {

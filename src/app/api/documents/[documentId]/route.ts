@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache"
 
+import { rateLimitedResponse, isRateLimited } from "@/lib/api/rate-limit"
 import { apiError, apiSuccess } from "@/lib/api/response"
 import {
   handleStorageError,
@@ -29,6 +30,10 @@ export async function PATCH(
 
   if (!session) {
     return unauthorizedResponse()
+  }
+
+  if (isRateLimited(`rename:${session.user.id}`, 30, 60_000)) {
+    return rateLimitedResponse()
   }
 
   const { documentId } = await params
@@ -84,6 +89,10 @@ export async function DELETE(
 
   if (!session) {
     return unauthorizedResponse()
+  }
+
+  if (isRateLimited(`delete:${session.user.id}`, 30, 60_000)) {
+    return rateLimitedResponse()
   }
 
   const { documentId } = await params

@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useDropzone } from "react-dropzone"
-import { UploadIcon } from "lucide-react"
+import { FileTextIcon, UploadIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { LoadingButton } from "@/components/ui/loading-button"
@@ -32,12 +32,16 @@ type UploadDocumentButtonProps = {
   isEmpty?: boolean
 }
 
+const SAMPLE_PDF_PATH = "/samples/sample-invoice.pdf"
+const SAMPLE_PDF_NAME = "Sample invoice.pdf"
+
 export function UploadDocumentButton({
   disabled = false,
   isEmpty = false,
 }: UploadDocumentButtonProps) {
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
+  const [isPreparingSample, setIsPreparingSample] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
 
   const uploadFile = useCallback(
@@ -88,13 +92,37 @@ export function UploadDocumentButton({
     [router]
   )
 
+  // The sample ships as a same-origin static file, so it reuses the exact
+  // upload pipeline a real PDF goes through — no separate server path.
+  const openSample = useCallback(async () => {
+    setIsPreparingSample(true)
+
+    try {
+      const response = await fetch(SAMPLE_PDF_PATH)
+
+      if (!response.ok) {
+        throw new Error(`Sample PDF request failed: ${response.status}`)
+      }
+
+      const blob = await response.blob()
+      const file = new File([blob], SAMPLE_PDF_NAME, { type: PDF_MIME_TYPE })
+
+      await uploadFile(file)
+    } catch (error) {
+      console.error("Failed to load the sample PDF:", error)
+      toast.error("The sample PDF could not be loaded.")
+    } finally {
+      setIsPreparingSample(false)
+    }
+  }, [uploadFile])
+
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     accept: {
       [PDF_MIME_TYPE]: [".pdf"],
     },
     maxSize: MAX_PDF_SIZE_BYTES,
     multiple: false,
-    disabled: isUploading || disabled,
+    disabled: isUploading || isPreparingSample || disabled,
     noClick: true,
     noKeyboard: true,
     onDrop: (files) => {
@@ -149,18 +177,32 @@ export function UploadDocumentButton({
             ? "File storage is not configured yet."
             : "The file opens in the editor with its real text still inside."}
         </p>
-        <LoadingButton
-          type="button"
-          variant="glow"
-          className="mt-8 w-fit"
-          loading={isUploading}
-          loadingText="Uploading..."
-          disabled={disabled}
-          onClick={open}
-        >
-          <UploadIcon data-icon="inline-start" />
-          {isEmpty ? "Upload PDF" : "Choose PDF"}
-        </LoadingButton>
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          <LoadingButton
+            type="button"
+            variant="glow"
+            loading={isUploading && !isPreparingSample}
+            loadingText="Uploading..."
+            disabled={disabled || isPreparingSample}
+            onClick={open}
+          >
+            <UploadIcon data-icon="inline-start" />
+            {isEmpty ? "Upload PDF" : "Choose PDF"}
+          </LoadingButton>
+          {isEmpty ? (
+            <LoadingButton
+              type="button"
+              variant="outline"
+              loading={isPreparingSample}
+              loadingText="Opening sample..."
+              disabled={disabled || isUploading}
+              onClick={() => void openSample()}
+            >
+              <FileTextIcon data-icon="inline-start" />
+              Try the sample invoice
+            </LoadingButton>
+          ) : null}
+        </div>
         {progress !== null ? (
           <Progress value={progress} className="mt-6 max-w-sm">
             <ProgressLabel>Uploading</ProgressLabel>
