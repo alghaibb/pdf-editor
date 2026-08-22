@@ -33,13 +33,20 @@ export async function createPdfUploadUrl(key: string, size: number) {
   })
 }
 
-export async function createPdfDownloadUrl(key: string, fileName: string) {
+export async function createPdfDownloadUrl(
+  key: string,
+  fileName: string,
+  options?: {
+    disposition?: "inline" | "attachment"
+  }
+) {
+  const disposition = options?.disposition ?? "inline"
   const client = getR2Client()
   const command = new GetObjectCommand({
     Bucket: getR2BucketName(),
     Key: key,
     ResponseContentType: PDF_MIME_TYPE,
-    ResponseContentDisposition: `inline; filename="${asciiContentDispositionName(fileName)}"`,
+    ResponseContentDisposition: `${disposition}; filename="${asciiContentDispositionName(fileName)}"`,
   })
 
   return getSignedUrl(client, command, {
@@ -49,9 +56,12 @@ export async function createPdfDownloadUrl(key: string, fileName: string) {
 
 export async function createCurrentPdfDownloadUrl(
   storageKey: string,
-  fileName: string
+  fileName: string,
+  options?: {
+    disposition?: "inline" | "attachment"
+  }
 ) {
-  return createPdfDownloadUrl(currentPdfKey(storageKey), fileName)
+  return createPdfDownloadUrl(currentPdfKey(storageKey), fileName, options)
 }
 
 export async function verifyStoredPdf(key: string, expectedSize: number) {

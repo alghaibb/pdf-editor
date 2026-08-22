@@ -8,6 +8,7 @@ import { DocumentList } from "@/app/dashboard/_components/document-list"
 import { UploadDocumentButton } from "@/app/dashboard/_components/upload-document-button"
 import {
   DocumentApiError,
+  duplicateDocument,
   isDocumentNotFoundError,
   isUnauthorizedDocumentError,
 } from "@/lib/documents/browser"
@@ -214,6 +215,33 @@ export function DocumentLibrary({
     [items, scheduleRefresh, userId]
   )
 
+  const duplicateDocumentNow = useCallback(
+    async (documentId: string) => {
+      try {
+        const copy = await duplicateDocument(documentId)
+        setItems((currentItems) => [
+          {
+            id: copy.documentId,
+            name: copy.name,
+            updatedAt: new Date().toISOString(),
+          },
+          ...currentItems,
+        ])
+        toast.success("Copy created.")
+        scheduleRefresh()
+      } catch (error) {
+        console.error("Failed to duplicate document:", error)
+        toast.error(
+          error instanceof DocumentApiError
+            ? error.message
+            : "The document could not be duplicated."
+        )
+        throw error
+      }
+    },
+    [scheduleRefresh]
+  )
+
   const deleteDocumentOptimistically = useCallback(
     (documentId: string) => {
       const current = items.find((item) => item.id === documentId)
@@ -270,6 +298,7 @@ export function DocumentLibrary({
         <DocumentList
           documents={items}
           onRename={renameDocumentOptimistically}
+          onDuplicate={duplicateDocumentNow}
           onDelete={deleteDocumentOptimistically}
         />
       )}

@@ -8,6 +8,7 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { cn } from "@/lib/utils"
 import { useEditorStore } from "@/stores/editor-store"
 import { DocumentNameEditor } from "./document-name-editor"
+import { EditorMoreActions } from "./editor-more-actions"
 import { LeaveEditorLink } from "./leave-editor-link"
 import { SaveStatus } from "./save-status"
 import { VersionHistory } from "./version-history"
@@ -16,12 +17,16 @@ type EditorToolbarProps = {
   documentId: string
   onSave: () => Promise<void>
   onDownload: () => Promise<void>
+  onRecognizeText: () => Promise<void>
+  onInsertPages: (file: File) => Promise<void>
 }
 
 export function EditorToolbar({
   documentId,
   onSave,
   onDownload,
+  onRecognizeText,
+  onInsertPages,
 }: EditorToolbarProps) {
   const isReady = useEditorStore((state) => state.isReady)
   const isDirty = useEditorStore((state) => state.isDirty)
@@ -77,6 +82,11 @@ export function EditorToolbar({
             <SaveIcon data-icon="inline-start" />
             <span className="hidden lg:inline">Save</span>
           </LoadingButton>
+          <EditorMoreActions
+            documentId={documentId}
+            onRecognizeText={onRecognizeText}
+            onInsertPages={onInsertPages}
+          />
           <VersionHistory documentId={documentId} />
           <ThemeToggle className="size-9 lg:size-10" />
           <LeaveEditorLink

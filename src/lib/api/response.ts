@@ -10,6 +10,8 @@ export type ApiErrorCode =
   | "FILE_TOO_LARGE"
   | "STORAGE_NOT_CONFIGURED"
   | "RATE_LIMITED"
+  | "SHARE_NOT_FOUND"
+  | "SHARE_EXPIRED"
   | "UNKNOWN"
 
 export type ApiErrorBody = {

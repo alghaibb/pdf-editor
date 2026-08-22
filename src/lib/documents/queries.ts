@@ -237,6 +237,58 @@ export async function renameOwnedDocument(input: {
   }
 }
 
+export async function createDocumentShare(input: {
+  documentId: string
+  token: string
+  expiresAt: Date
+}) {
+  return prisma.documentShare.create({
+    data: {
+      documentId: input.documentId,
+      token: input.token,
+      expiresAt: input.expiresAt,
+    },
+    select: {
+      token: true,
+      expiresAt: true,
+    },
+  })
+}
+
+export async function getShareByToken(token: string) {
+  return prisma.documentShare.findUnique({
+    where: {
+      token,
+    },
+    select: {
+      id: true,
+      expiresAt: true,
+      document: {
+        select: {
+          id: true,
+          name: true,
+          storageKey: true,
+          currentVersion: true,
+        },
+      },
+    },
+  })
+}
+
+export async function getSharePageState(token: string) {
+  const share = await getShareByToken(token)
+
+  if (!share || share.document.currentVersion < 1) {
+    return null
+  }
+
+  return {
+    name: share.document.name,
+    expiresAt: share.expiresAt,
+    isExpired: share.expiresAt.getTime() <= Date.now(),
+  }
+}
+
 export async function deleteOwnedDocument(input: {
   documentId: string
   userId: string
