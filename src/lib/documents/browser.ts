@@ -152,12 +152,17 @@ export type DocumentVersionSummary = {
   createdAt: string
 }
 
-export async function fetchDocumentVersions(documentId: string) {
-  const response = await fetch(`/api/documents/${documentId}/versions`)
+export async function fetchDocumentVersions(
+  documentId: string,
+  cursor?: number
+) {
+  const query = cursor !== undefined ? `?cursor=${cursor}` : ""
+  const response = await fetch(`/api/documents/${documentId}/versions${query}`)
 
   return parseJson<{
     currentVersion: number
     versions: DocumentVersionSummary[]
+    nextCursor: number | null
   }>(response, "Could not load version history.")
 }
 
@@ -177,6 +182,23 @@ export async function restoreDocumentVersion(
     documentId: string
     currentVersion: number
   }>(response, "The version could not be restored.")
+}
+
+export async function deleteDocumentVersion(
+  documentId: string,
+  version: number
+) {
+  const response = await fetch(
+    `/api/documents/${documentId}/versions/${version}`,
+    {
+      method: "DELETE",
+    }
+  )
+
+  return parseJson<{
+    deleted: boolean
+    version: number
+  }>(response, "The version could not be deleted.")
 }
 
 export async function renameDocument(documentId: string, name: string) {

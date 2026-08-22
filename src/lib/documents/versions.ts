@@ -15,10 +15,12 @@ import {
 
 /**
  * Every save stores a full copy of the PDF, so retention is bounded to keep
- * storage from growing forever (a 20 MB PDF saved 30 times would otherwise
- * hold 600 MB).
+ * storage from growing forever. With autosave a busy session can produce many
+ * versions quickly, so the window is generous; at 50 versions a 20 MB PDF
+ * tops out at 1 GB per document. Pruned versions are deleted from R2 and are
+ * not recoverable.
  */
-export const MAX_STORED_VERSIONS = 10
+export const MAX_STORED_VERSIONS = 50
 
 /**
  * Deletes stored versions beyond the retention window. R2 objects go first:
@@ -89,4 +91,29 @@ export async function restoreDocumentVersion(
   }
 
   return saved
+}
+
+/**
+ * Permanently removes one historical version. The current version is refused
+ * so the open document cannot vanish from storage. R2 is deleted first: if
+ * that fails the database row stays, and the user can retry.
+ */
+export async function deleteStoredVersion(
+  document: RestorableDocument,
+  version: number
+) {
+  if (version === document.currentVersion) {
+    return "current" as const
+  }
+
+  const source = await getDocumentVersion(document.id, version)
+
+  if (!source) {
+    return null
+  }
+
+  await deletePdfObjects([versionPdfKey(document.storageKey, version)])
+  await deleteVersionRecords(document.id, [version])
+
+  return "deleted" as const
 }

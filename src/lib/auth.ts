@@ -60,11 +60,16 @@ export const auth = betterAuth({
       sendVerificationOnSignUp: true,
       overrideDefaultEmailVerification: true,
       allowedAttempts: 5,
+      // Requesting a code while one is still active re-sends that same code
+      // instead of rotating it, so an older email in the inbox never carries
+      // a code that a newer email has silently invalidated.
+      resendStrategy: "reuse",
       async sendVerificationOTP({ email, otp, type }) {
-        // Do not await — avoids timing side-channels; Better Auth docs recommend this.
-        void sendAuthOtpEmail({ email, otp, type }).catch((error: unknown) => {
-          console.error("Failed to send verification OTP email:", error)
-        })
+        // Awaited on purpose: Better Auth awaits this callback before it
+        // responds (and logs failures itself). Fire-and-forget meant Vercel
+        // froze the function with the Resend call still in flight, so codes
+        // arrived late — after a resend had rotated them — or not at all.
+        await sendAuthOtpEmail({ email, otp, type })
       },
     }),
     // Must remain last so Set-Cookie headers work from Server Actions.

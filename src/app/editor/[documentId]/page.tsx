@@ -60,6 +60,7 @@ async function EditorDocument({
       documentId={document.id}
       fileName={document.name}
       downloadUrl={downloadUrl}
+      currentVersion={document.currentVersion}
       licenseKey={process.env.APRYSE_LICENSE_KEY}
     />
   )
