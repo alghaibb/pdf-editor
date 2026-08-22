@@ -1,5 +1,9 @@
 import { MAX_DOCUMENT_NAME_LENGTH } from "@/lib/pdf/constants"
 
+export function duplicateDocumentName(name: string): string {
+  return sanitizeDocumentName(`Copy of ${name}`)
+}
+
 export function sanitizeDocumentName(rawName: string): string {
   const basename = rawName.replaceAll("\\", "/").split("/").pop()?.trim() ?? ""
   const withoutControlChars = basename.replace(/[\u0000-\u001F\u007F]/g, "")

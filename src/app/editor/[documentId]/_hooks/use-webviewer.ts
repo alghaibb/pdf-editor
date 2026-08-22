@@ -11,11 +11,14 @@ import {
 } from "@/lib/documents/browser"
 import { WEBVIEWER_PATH } from "@/lib/webviewer/constants"
 import { useEditorStore } from "@/stores/editor-store"
+import { PdfFileError, pdfFileErrorMessage } from "@/lib/pdf/file"
 import {
   downloadBlob,
   exportPdfBlob,
   handleSaveShortcutEvent,
 } from "../_lib/editor-utils"
+import { insertPagesFromPdfFile } from "../_lib/insert-pages"
+import { OcrError, recognizeScannedPages } from "../_lib/ocr"
 import { clearRecoveryStash, stashRecoveryPdf } from "../_lib/recovery"
 
 type UseWebViewerOptions = {
@@ -431,10 +434,90 @@ export function useWebViewer(
     }
   }
 
+  async function recognizeText() {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    useEditorStore.getState().setReady(false)
+    useEditorStore
+      .getState()
+      .setNotice("Reading text from the page images...")
+
+    try {
+      const blob = await recognizeScannedPages(instance, ({ page, pageCount }) => {
+        useEditorStore
+          .getState()
+          .setNotice(`Reading text from page ${page} of ${pageCount}...`)
+      })
+
+      reloadDocumentInPlace(blob, { endsDirty: true })
+      useEditorStore
+        .getState()
+        .setNotice("Text was added from the page images. Save to keep it.")
+    } catch (error) {
+      console.error("Failed to recognize PDF text:", error)
+      useEditorStore.getState().setReady(true)
+
+      if (error instanceof OcrError) {
+        useEditorStore.getState().setNotice(error.message)
+        throw error
+      }
+
+      useEditorStore
+        .getState()
+        .setError("Text could not be read from the page images. Try again.")
+      throw error
+    }
+  }
+
+  async function insertPagesFromPdf(file: File) {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    const contentEditManager =
+      instance.Core.documentViewer.getContentEditManager()
+
+    if (contentEditManager.isInContentEditMode()) {
+      contentEditManager.endContentEditMode()
+    }
+
+    try {
+      await insertPagesFromPdfFile(instance, file)
+      await instance.Core.ContentEdit.preloadWorker(contentEditManager)
+      await contentEditManager.startContentEditMode()
+      useEditorStore.getState().markDirty()
+    } catch (error) {
+      console.error("Failed to insert PDF pages:", error)
+
+      try {
+        await instance.Core.ContentEdit.preloadWorker(contentEditManager)
+        await contentEditManager.startContentEditMode()
+      } catch (restartError) {
+        console.error("Failed to restart content editing:", restartError)
+      }
+
+      if (error instanceof PdfFileError) {
+        throw new Error(pdfFileErrorMessage(error.code))
+      }
+
+      throw error instanceof Error
+        ? error
+        : new Error("The pages could not be inserted.")
+    }
+  }
+
   return {
     saveDocument,
     downloadPdf,
     loadRecoveredPdf,
+    recognizeText,
+    insertPagesFromPdf,
   }
 }
 
@@ -466,7 +549,7 @@ async function warnWhenTextLayerMissing(
     useEditorStore
       .getState()
       .setNotice(
-        "This PDF has no selectable text, so text editing is unavailable. It may be a scanned document; OCR is not supported yet. You can still annotate, sign, and save it."
+        "This PDF has no selectable text. It looks like a scan. Use Make text editable to read the page images, then save."
       )
   } catch (error) {
     console.error("Failed to inspect the PDF text layer:", error)

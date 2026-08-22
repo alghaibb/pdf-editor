@@ -31,6 +31,7 @@ import {
   DocumentApiError,
   deleteDocumentVersion,
   fetchDocumentVersions,
+  requestVersionDownloadUrl,
   restoreDocumentVersion,
   type DocumentVersionSummary,
 } from "@/lib/documents/browser"
@@ -65,12 +66,18 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null)
   const [deletingVersion, setDeletingVersion] = useState<number | null>(null)
+  const [downloadingVersion, setDownloadingVersion] = useState<number | null>(
+    null
+  )
   const [confirmVersion, setConfirmVersion] = useState<number | null>(null)
   const [confirmDeleteVersion, setConfirmDeleteVersion] = useState<
     number | null
   >(null)
   const isBusy =
-    restoringVersion !== null || deletingVersion !== null || isSaving
+    restoringVersion !== null ||
+    deletingVersion !== null ||
+    downloadingVersion !== null ||
+    isSaving
 
   async function loadVersions() {
     setIsLoading(true)
@@ -181,6 +188,24 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
     }
   }
 
+  async function downloadVersion(version: number) {
+    setDownloadingVersion(version)
+
+    try {
+      const result = await requestVersionDownloadUrl(documentId, version)
+      window.location.assign(result.downloadUrl)
+    } catch (error) {
+      console.error("Failed to download document version:", error)
+      toast.error(
+        error instanceof DocumentApiError
+          ? error.message
+          : "The version could not be downloaded."
+      )
+    } finally {
+      setDownloadingVersion(null)
+    }
+  }
+
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -201,8 +226,9 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
           <SheetHeader>
             <SheetTitle>Version history</SheetTitle>
             <SheetDescription>
-              Every save keeps a copy. Restoring brings an old version back as
-              a new save. Deleting a version is permanent.
+              Every save keeps a copy. Download any version without changing
+              the open file. Restoring brings an old version back as a new
+              save. Deleting a version is permanent.
             </SheetDescription>
           </SheetHeader>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-8 pb-8">
@@ -243,35 +269,48 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
                           · {formatSize(entry.size)}
                         </p>
                       </div>
-                      {isCurrent ? null : (
-                        <div className="flex shrink-0 items-center gap-1">
-                          <LoadingButton
-                            type="button"
-                            variant="outline"
-                            size="xs"
-                            loading={restoringVersion === entry.version}
-                            loadingText="Restoring..."
-                            disabled={isBusy}
-                            onClick={() => requestRestore(entry.version)}
-                          >
-                            Restore
-                          </LoadingButton>
-                          <LoadingButton
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            className="text-muted-foreground hover:text-destructive"
-                            loading={deletingVersion === entry.version}
-                            loadingText="Deleting..."
-                            disabled={isBusy}
-                            onClick={() =>
-                              setConfirmDeleteVersion(entry.version)
-                            }
-                          >
-                            Delete
-                          </LoadingButton>
-                        </div>
-                      )}
+                      <div className="flex shrink-0 items-center gap-1">
+                        <LoadingButton
+                          type="button"
+                          variant="outline"
+                          size="xs"
+                          loading={downloadingVersion === entry.version}
+                          loadingText="Downloading..."
+                          disabled={isBusy}
+                          onClick={() => void downloadVersion(entry.version)}
+                        >
+                          Download
+                        </LoadingButton>
+                        {isCurrent ? null : (
+                          <>
+                            <LoadingButton
+                              type="button"
+                              variant="outline"
+                              size="xs"
+                              loading={restoringVersion === entry.version}
+                              loadingText="Restoring..."
+                              disabled={isBusy}
+                              onClick={() => requestRestore(entry.version)}
+                            >
+                              Restore
+                            </LoadingButton>
+                            <LoadingButton
+                              type="button"
+                              variant="ghost"
+                              size="xs"
+                              className="text-muted-foreground hover:text-destructive"
+                              loading={deletingVersion === entry.version}
+                              loadingText="Deleting..."
+                              disabled={isBusy}
+                              onClick={() =>
+                                setConfirmDeleteVersion(entry.version)
+                              }
+                            >
+                              Delete
+                            </LoadingButton>
+                          </>
+                        )}
+                      </div>
                     </div>
                   )
                 })}

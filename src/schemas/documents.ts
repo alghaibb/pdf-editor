@@ -56,6 +56,15 @@ export const listVersionsQuerySchema = z.object({
   cursor: z.coerce.number().int().positive().optional(),
 })
 
+export const createShareSchema = z.object({
+  hours: z.union([z.literal(1), z.literal(24), z.literal(168)]),
+})
+
+export const shareTokenSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{16,64}$/)
+
 export type CreateUploadUrlInput = z.infer<typeof createUploadUrlSchema>
 export type CompleteDocumentInput = z.infer<typeof completeDocumentSchema>
 export type RenameDocumentInput = z.infer<typeof renameDocumentSchema>
+export type CreateShareInput = z.infer<typeof createShareSchema>

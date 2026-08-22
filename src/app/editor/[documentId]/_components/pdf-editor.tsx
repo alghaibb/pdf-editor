@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useEditorStore } from "@/stores/editor-store"
+import { OcrError } from "../_lib/ocr"
 import { EditorToolbar } from "./editor-toolbar"
 import { useAutosave } from "../_hooks/use-autosave"
 import { useEditorKeyboardShortcuts } from "../_hooks/use-editor-keyboard-shortcuts"
@@ -39,7 +40,13 @@ export function PdfEditor({
   preconnect(new URL(downloadUrl).origin, { crossOrigin: "anonymous" })
 
   const viewerRef = useRef<HTMLDivElement>(null)
-  const { saveDocument, downloadPdf, loadRecoveredPdf } = useWebViewer(
+  const {
+    saveDocument,
+    downloadPdf,
+    loadRecoveredPdf,
+    recognizeText,
+    insertPagesFromPdf,
+  } = useWebViewer(
     viewerRef,
     {
       licenseKey,
@@ -79,6 +86,36 @@ export function PdfEditor({
     } catch (error) {
       console.error("Autosave failed:", error)
       toast.error("Autosave failed. Your latest edits are not saved yet.")
+    }
+  }
+
+  async function handleRecognizeText() {
+    try {
+      await recognizeText()
+      toast.success("Text was added from the page images.")
+    } catch (error) {
+      console.error("Failed to recognize PDF text:", error)
+
+      if (error instanceof OcrError) {
+        toast.error(error.message)
+        return
+      }
+
+      toast.error("Could not read text from the page images.")
+    }
+  }
+
+  async function handleInsertPages(file: File) {
+    try {
+      await insertPagesFromPdf(file)
+      toast.success("Pages inserted. Save to keep them.")
+    } catch (error) {
+      console.error("Failed to insert PDF pages:", error)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "The pages could not be inserted."
+      )
     }
   }
 
@@ -190,6 +227,8 @@ export function PdfEditor({
         documentId={documentId}
         onSave={handleSave}
         onDownload={handleDownload}
+        onRecognizeText={handleRecognizeText}
+        onInsertPages={handleInsertPages}
       />
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         {!isReady ? (
@@ -214,17 +253,25 @@ export function PdfEditor({
               <AlertTitle>About this document</AlertTitle>
               <AlertDescription>
                 {noticeMessage}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 self-start"
-                  onClick={() =>
-                    useEditorStore.getState().setNotice(null)
-                  }
-                >
-                  Dismiss
-                </Button>
+                <span className="mt-2 flex flex-wrap gap-2">
+                  {noticeMessage.includes("Make text editable") ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void handleRecognizeText()}
+                    >
+                      Make text editable
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => useEditorStore.getState().setNotice(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </span>
               </AlertDescription>
             </Alert>
           </div>

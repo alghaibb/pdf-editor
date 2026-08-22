@@ -217,6 +217,53 @@ export async function renameDocument(documentId: string, name: string) {
   }>(response, "The document could not be renamed.")
 }
 
+export async function requestVersionDownloadUrl(
+  documentId: string,
+  version: number
+) {
+  const response = await fetch(
+    `/api/documents/${documentId}/versions/${version}`
+  )
+
+  return parseJson<{
+    documentId: string
+    version: number
+    fileName: string
+    downloadUrl: string
+  }>(response, "The version could not be downloaded.")
+}
+
+export async function duplicateDocument(documentId: string) {
+  const response = await fetch(`/api/documents/${documentId}/duplicate`, {
+    method: "POST",
+  })
+
+  return parseJson<{
+    documentId: string
+    name: string
+    currentVersion: number
+  }>(response, "The document could not be duplicated.")
+}
+
+export async function createDocumentShareLink(
+  documentId: string,
+  hours: 1 | 24 | 168
+) {
+  const response = await fetch(`/api/documents/${documentId}/share`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ hours }),
+  })
+
+  return parseJson<{
+    url: string
+    expiresAt: string
+    hours: 1 | 24 | 168
+  }>(response, "The download link could not be created.")
+}
+
 export async function deleteDocument(documentId: string) {
   const response = await fetch(`/api/documents/${documentId}`, {
     method: "DELETE",

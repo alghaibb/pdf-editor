@@ -6,18 +6,23 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { DocumentSnapshot } from "@/lib/documents/outbox"
 import { DeleteDocumentButton } from "@/app/dashboard/_components/delete-document-button"
+import { DuplicateDocumentButton } from "@/app/dashboard/_components/duplicate-document-button"
 import { DocumentName } from "@/app/dashboard/_components/document-name"
 import { DocumentUpdatedAt } from "@/app/dashboard/_components/document-updated-at"
+import { ShareDocumentDialog } from "@/components/share-document-dialog"
+import { Button } from "@/components/ui/button"
 
 type DocumentListProps = {
   documents: DocumentSnapshot[]
   onRename: (documentId: string, name: string) => void
+  onDuplicate: (documentId: string) => Promise<void>
   onDelete: (documentId: string) => void
 }
 
 export function DocumentList({
   documents,
   onRename,
+  onDuplicate,
   onDelete,
 }: DocumentListProps) {
   return (
@@ -55,13 +60,22 @@ export function DocumentList({
                   <DocumentUpdatedAt value={document.updatedAt} />
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2 sm:pb-0.5">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pb-0.5">
                 <Link
                   href={`/editor/${document.id}`}
                   className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                 >
                   Open
                 </Link>
+                <DuplicateDocumentButton
+                  onConfirm={() => onDuplicate(document.id)}
+                />
+                <ShareDocumentDialog
+                  documentId={document.id}
+                  trigger={
+                    <Button type="button" variant="outline" size="sm" />
+                  }
+                />
                 <DeleteDocumentButton
                   fileName={document.name}
                   onConfirm={() => onDelete(document.id)}

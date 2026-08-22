@@ -73,8 +73,8 @@ export function HomeFooter({ isAuthenticated }: HomeFooterProps) {
             Note
           </p>
           <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
-            Scanned pages without a text layer cannot be rewritten until text
-            exists in the file.
+            Scanned pages can be made editable with Make text editable, then
+            saved.
           </p>
         </div>
       </div>
