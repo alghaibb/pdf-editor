@@ -9,19 +9,15 @@ export function firstNameFrom(name: string) {
 
 export function DashboardHero({ firstName }: DashboardHeroProps) {
   return (
-    <section className="px-5 py-16 sm:px-8 sm:py-20 lg:px-12 lg:py-24">
+    <section className="px-5 pt-10 pb-6 sm:px-8 sm:pt-14 sm:pb-8 lg:px-12 lg:pt-16">
       <div className="mx-auto flex w-full max-w-6xl flex-col">
         <p className="text-[11px] font-semibold tracking-[0.28em] text-muted-foreground uppercase">
           {firstName ? `Studio / ${firstName}` : "Studio"}
         </p>
-        <h1 className="font-heading mt-5 max-w-3xl text-5xl leading-[0.94] font-semibold tracking-tight sm:text-6xl lg:text-7xl">
+        <h1 className="font-heading mt-4 max-w-3xl text-4xl leading-[0.94] font-semibold tracking-tight sm:text-5xl lg:text-6xl">
           Your files.
           <span className="mt-2 block italic">Ready to rewrite.</span>
         </h1>
-        <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Open a PDF. Change the words in the file. Save, and they stay
-          changed.
-        </p>
       </div>
     </section>
   )

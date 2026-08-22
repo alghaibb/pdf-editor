@@ -142,11 +142,14 @@ export function DashboardIndex({ userName, userEmail }: DashboardIndexProps) {
             </form>
           </nav>
 
-          <div className="mt-auto border-t border-border pt-8 ">
-            <p className="font-heading text-lg font-semibold tracking-tight">
+          <div className="mt-auto border-t border-border pt-8">
+            <p className="text-[11px] font-semibold tracking-[0.2em] text-muted-foreground uppercase">
+              Signed in
+            </p>
+            <p className="font-heading mt-2 text-lg font-semibold tracking-tight">
               {userName}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground mb-4">{userEmail}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{userEmail}</p>
           </div>
         </div>
       </DialogContent>

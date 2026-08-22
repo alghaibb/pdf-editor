@@ -151,57 +151,75 @@ export function UploadDocumentButton({
       <div
         {...getRootProps({
           className: cn(
-            "border border-border bg-background px-6 py-10 transition-colors sm:px-10",
-            isEmpty ? "sm:py-14" : "sm:py-8",
+            "border border-border bg-background px-6 py-8 transition-colors sm:px-8",
+            isEmpty ? "sm:py-12" : "sm:py-6",
             isDragActive && "border-foreground bg-muted/40",
             disabled && "opacity-60"
           ),
         })}
       >
         <input {...getInputProps()} />
-        <p className="text-[11px] font-semibold tracking-[0.28em] text-muted-foreground uppercase">
-          {isEmpty ? "Folio / empty" : "Add a file"}
-        </p>
-        {isEmpty ? (
-          <h2 className="font-heading mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
-            Nothing here yet.
-            <span className="mt-1 block italic">Drop a PDF to start.</span>
-          </h2>
-        ) : (
-          <p className="font-heading mt-4 text-2xl font-semibold tracking-tight">
-            {isDragActive ? "Drop the PDF." : "Drop a PDF, or choose one."}
-          </p>
-        )}
-        <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-          {disabled
-            ? "File storage is not configured yet."
-            : "The file opens in the editor with its real text still inside."}
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <LoadingButton
-            type="button"
-            variant="glow"
-            loading={isUploading && !isPreparingSample}
-            loadingText="Uploading..."
-            disabled={disabled || isPreparingSample}
-            onClick={open}
+        <div
+          className={cn(
+            "flex flex-col",
+            isEmpty
+              ? "gap-0"
+              : "gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-8"
+          )}
+        >
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold tracking-[0.28em] text-muted-foreground uppercase">
+              {isEmpty ? "Folio / empty" : "Add a file"}
+            </p>
+            {isEmpty ? (
+              <h2 className="font-heading mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
+                Nothing here yet.
+                <span className="mt-1 block italic">Drop a PDF to start.</span>
+              </h2>
+            ) : (
+              <p className="font-heading mt-3 text-2xl font-semibold tracking-tight">
+                {isDragActive ? "Drop the PDF." : "Drop a PDF, or choose one."}
+              </p>
+            )}
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+              {disabled
+                ? "File storage is not configured yet."
+                : isEmpty
+                  ? "The file opens in the editor with its real text still inside."
+                  : "It opens with the original wording still in the file."}
+            </p>
+          </div>
+          <div
+            className={cn(
+              "flex shrink-0 flex-wrap items-center gap-3",
+              isEmpty && "mt-8"
+            )}
           >
-            <UploadIcon data-icon="inline-start" />
-            {isEmpty ? "Upload PDF" : "Choose PDF"}
-          </LoadingButton>
-          {isEmpty ? (
             <LoadingButton
               type="button"
-              variant="outline"
-              loading={isPreparingSample}
-              loadingText="Opening sample..."
-              disabled={disabled || isUploading}
-              onClick={() => void openSample()}
+              variant="glow"
+              loading={isUploading && !isPreparingSample}
+              loadingText="Uploading..."
+              disabled={disabled || isPreparingSample}
+              onClick={open}
             >
-              <FileTextIcon data-icon="inline-start" />
-              Try the sample invoice
+              <UploadIcon data-icon="inline-start" />
+              {isEmpty ? "Upload PDF" : "Choose PDF"}
             </LoadingButton>
-          ) : null}
+            {isEmpty ? (
+              <LoadingButton
+                type="button"
+                variant="outline"
+                loading={isPreparingSample}
+                loadingText="Opening sample..."
+                disabled={disabled || isUploading}
+                onClick={() => void openSample()}
+              >
+                <FileTextIcon data-icon="inline-start" />
+                Try the sample invoice
+              </LoadingButton>
+            ) : null}
+          </div>
         </div>
         {progress !== null ? (
           <Progress value={progress} className="mt-6 max-w-sm">

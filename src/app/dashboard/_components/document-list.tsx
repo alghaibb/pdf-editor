@@ -23,10 +23,15 @@ export function DocumentList({
   return (
     <div>
       <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
-        <h2 className="font-heading text-3xl font-semibold tracking-tight">
-          Folio
-        </h2>
-        <p className="text-[11px] font-semibold tracking-[0.28em] text-muted-foreground uppercase">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.28em] text-muted-foreground uppercase">
+            Studio / files
+          </p>
+          <h2 className="font-heading mt-2 text-3xl font-semibold tracking-tight">
+            Folio
+          </h2>
+        </div>
+        <p className="font-mono text-[11px] tracking-[0.24em] text-muted-foreground">
           {String(documents.length).padStart(2, "0")}{" "}
           {documents.length === 1 ? "file" : "files"}
         </p>
@@ -35,7 +40,7 @@ export function DocumentList({
         {documents.map((document, index) => (
           <li
             key={document.id}
-            className="border-b border-border py-6 sm:py-7"
+            className="border-b border-border py-6 transition-colors hover:bg-muted/30 sm:py-7"
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
               <div className="flex min-w-0 items-start gap-5">
@@ -53,9 +58,7 @@ export function DocumentList({
               <div className="flex shrink-0 items-center gap-2 sm:pb-0.5">
                 <Link
                   href={`/editor/${document.id}`}
-                  className={cn(
-                    buttonVariants({ variant: "glow", size: "sm" })
-                  )}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                 >
                   Open
                 </Link>

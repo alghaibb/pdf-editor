@@ -23,6 +23,12 @@ export function HomeHeader({ isAuthenticated }: HomeHeaderProps) {
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
           <Link
+            href="#difference"
+            className={cn(buttonVariants({ variant: "ghost" }))}
+          >
+            The difference
+          </Link>
+          <Link
             href="#how-it-works"
             className={cn(buttonVariants({ variant: "ghost" }))}
           >

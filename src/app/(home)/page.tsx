@@ -5,6 +5,7 @@ import { HomeClose } from "@/app/(home)/_components/home-close"
 import { HomeFooter } from "@/app/(home)/_components/home-footer"
 import { HomeHeader } from "@/app/(home)/_components/home-header"
 import { HomeHero } from "@/app/(home)/_components/home-hero"
+import { HomeCapabilities } from "@/app/(home)/_components/home-capabilities"
 import { HomeProof } from "@/app/(home)/_components/home-proof"
 import {
   HomeCloseFromSession,
@@ -15,7 +16,9 @@ import {
 import { HomeSteps } from "@/app/(home)/_components/home-steps"
 
 export const metadata: Metadata = {
-  description: "Edit real PDF text in the browser, then save the actual file.",
+  title: "Edit the PDF itself",
+  description:
+    "Rewrite existing PDF text in the browser, save the actual file, and reopen it with the change still there.",
 }
 
 export default function HomePage() {
@@ -29,6 +32,7 @@ export default function HomePage() {
           <Suspense fallback={<HomeHero isAuthenticated={false} />}>
             <HomeHeroFromSession />
           </Suspense>
+          <HomeCapabilities />
           <HomeProof />
           <HomeSteps />
           <Suspense fallback={<HomeClose isAuthenticated={false} />}>

@@ -49,6 +49,20 @@ export function HomeMobileNav({ isAuthenticated }: HomeMobileNavProps) {
             nativeButton={false}
             render={
               <Link
+                href="#difference"
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "w-full justify-start"
+                )}
+              />
+            }
+          >
+            The difference
+          </SheetClose>
+          <SheetClose
+            nativeButton={false}
+            render={
+              <Link
                 href="#how-it-works"
                 className={cn(
                   buttonVariants({ variant: "ghost" }),

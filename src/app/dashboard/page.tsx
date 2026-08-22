@@ -14,8 +14,8 @@ import { DocumentLibrary } from "@/app/dashboard/_components/document-library"
 import { EditorAssetPrefetch } from "@/app/dashboard/_components/editor-asset-prefetch"
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Your PDF Editor dashboard.",
+  title: "Folio",
+  description: "Open a PDF and rewrite the words already in the file.",
 }
 
 export default function DashboardPage() {
@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const missingStorageEnv = getMissingR2EnvNames()
 
   return (
-    <section className="px-5 pb-24 sm:px-8 lg:px-12 lg:pb-32">
+    <section className="px-5 pb-20 sm:px-8 lg:px-12 lg:pb-28">
       <EditorAssetPrefetch />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
         {storageReady ? null : (

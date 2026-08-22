@@ -5,7 +5,7 @@ export function DashboardFolioSkeleton() {
   return (
     <div className="flex flex-col gap-14">
       <DashboardCropFrame>
-        <div className="border border-border bg-background px-6 py-10 sm:px-10 sm:py-8">
+        <div className="border border-border bg-background px-6 py-8 sm:px-8 sm:py-6">
           <Skeleton className="h-3 w-24" />
           <Skeleton className="mt-4 h-8 w-64 max-w-full" />
           <Skeleton className="mt-3 h-4 w-80 max-w-full" />
@@ -14,9 +14,14 @@ export function DashboardFolioSkeleton() {
       </DashboardCropFrame>
       <div>
         <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
-          <h2 className="font-heading text-3xl font-semibold tracking-tight">
-            Folio
-          </h2>
+          <div>
+            <p className="text-[11px] font-semibold tracking-[0.28em] text-muted-foreground uppercase">
+              Studio / files
+            </p>
+            <h2 className="font-heading mt-2 text-3xl font-semibold tracking-tight">
+              Folio
+            </h2>
+          </div>
           <Skeleton className="h-3 w-16" />
         </div>
         <ul>
