@@ -24,6 +24,12 @@ type EditorState = {
   dirtyEpoch: number
   saveStatus: EditorSaveStatus
   errorMessage: string | null
+  /**
+   * Informational message that does not affect save state, e.g. a scanned
+   * PDF without a text layer. setError is the wrong channel for these
+   * because it flips the save status to failed.
+   */
+  noticeMessage: string | null
   setDocument: (documentId: string, fileName: string) => void
   setReady: (isReady: boolean) => void
   markDirty: () => void
@@ -32,6 +38,7 @@ type EditorState = {
   setFinalizing: (isFinalizing: boolean) => void
   setDownloading: (isDownloading: boolean) => void
   setError: (message: string | null) => void
+  setNotice: (message: string | null) => void
   reset: () => void
 }
 
@@ -46,6 +53,7 @@ const initialState = {
   dirtyEpoch: 0,
   saveStatus: "saved" as const,
   errorMessage: null,
+  noticeMessage: null,
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -90,5 +98,6 @@ export const useEditorStore = create<EditorState>((set) => ({
       saveStatus: errorMessage ? "failed" : "unsaved",
       isSaving: false,
     }),
+  setNotice: (noticeMessage) => set({ noticeMessage }),
   reset: () => set(initialState),
 }))

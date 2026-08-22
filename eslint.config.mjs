@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "src/generated/**",
     "public/lib/webviewer/**",
+    // Leftover OpenNext/Cloudflare build output; the app deploys to Vercel.
+    ".open-next/**",
   ]),
 ]);
 

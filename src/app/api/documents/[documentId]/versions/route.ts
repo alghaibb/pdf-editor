@@ -13,10 +13,16 @@ import {
   listDocumentVersions,
 } from "@/lib/documents/queries"
 import { restoreDocumentVersion } from "@/lib/documents/versions"
-import { documentIdSchema, restoreVersionSchema } from "@/schemas/documents"
+import {
+  documentIdSchema,
+  listVersionsQuerySchema,
+  restoreVersionSchema,
+} from "@/schemas/documents"
+
+const VERSION_PAGE_SIZE = 20
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ documentId: string }> }
 ) {
   const session = await requireApiSession()
@@ -32,6 +38,14 @@ export async function GET(
     return apiError("DOCUMENT_NOT_FOUND", "Document not found.", 404)
   }
 
+  const parsedQuery = listVersionsQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams)
+  )
+
+  if (!parsedQuery.success) {
+    return apiError("VALIDATION_ERROR", "Invalid request.", 400)
+  }
+
   try {
     const document = await getOwnedDocument(parsedId.data, session.user.id)
 
@@ -39,15 +53,22 @@ export async function GET(
       return apiError("DOCUMENT_NOT_FOUND", "Document not found.", 404)
     }
 
-    const versions = await listDocumentVersions(document.id, session.user.id)
+    // One extra row signals another page without a second count query.
+    const rows = await listDocumentVersions(document.id, session.user.id, {
+      cursor: parsedQuery.data.cursor,
+      take: VERSION_PAGE_SIZE + 1,
+    })
+    const hasMore = rows.length > VERSION_PAGE_SIZE
+    const page = hasMore ? rows.slice(0, VERSION_PAGE_SIZE) : rows
 
     return apiSuccess({
       currentVersion: document.currentVersion,
-      versions: versions.map((row) => ({
+      versions: page.map((row) => ({
         version: row.version,
         size: row.size,
         createdAt: row.createdAt.toISOString(),
       })),
+      nextCursor: hasMore ? page[page.length - 1].version : null,
     })
   } catch (error) {
     console.error("Failed to list document versions:", error)

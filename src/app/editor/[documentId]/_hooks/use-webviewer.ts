@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import type { WebViewerInstance } from "@pdftron/webviewer"
+import { useCallback, useEffect, useRef } from "react"
+import type { Core, WebViewerInstance } from "@pdftron/webviewer"
 
 import {
   completeDocumentUpload,
@@ -16,6 +16,7 @@ import {
   exportPdfBlob,
   handleSaveShortcutEvent,
 } from "../_lib/editor-utils"
+import { clearRecoveryStash, stashRecoveryPdf } from "../_lib/recovery"
 
 type UseWebViewerOptions = {
   licenseKey?: string
@@ -43,13 +44,56 @@ export function useWebViewer(
 ) {
   const instanceRef = useRef<WebViewerInstance | null>(null)
   const ignoreDirtyRef = useRef(false)
-  // Kept in a ref so a new callback identity does not tear down and
-  // reinitialize the whole viewer via the main effect.
+  // Set while reloading bytes that only exist locally (crash recovery) so
+  // the load pipeline ends in a dirty state instead of "Saved".
+  const endsDirtyAfterLoadRef = useRef(false)
+  // Kept in refs so new identities/values do not tear down and
+  // reinitialize the whole viewer via the main effect. In particular, a
+  // version restore refreshes the page with a newly signed download URL;
+  // the document swaps into the running viewer instead of rebooting it.
   const onSaveShortcutRef = useRef(onSaveShortcut)
+  const fileNameRef = useRef(fileName)
+  const latestDownloadUrlRef = useRef(downloadUrl)
+  // The URL the viewer actually has loaded; null until the first boot
+  // finishes and after disposal.
+  const loadedDownloadUrlRef = useRef<string | null>(null)
 
   useEffect(() => {
     onSaveShortcutRef.current = onSaveShortcut
+    fileNameRef.current = fileName
+    latestDownloadUrlRef.current = downloadUrl
   })
+
+  /**
+   * Loads a different document source into the running viewer without
+   * rebooting WebViewer. Content-edit mode must end before the swap or
+   * the reload can wedge and leave the skeleton up forever; the
+   * documentLoaded pipeline starts it again for the new bytes.
+   */
+  const reloadDocumentInPlace = useCallback(
+    (source: string | Blob, { endsDirty }: { endsDirty: boolean }) => {
+      const instance = instanceRef.current
+      if (!instance) {
+        throw new Error("The editor is still loading.")
+      }
+
+      const contentEditManager =
+        instance.Core.documentViewer.getContentEditManager()
+
+      if (contentEditManager.isInContentEditMode()) {
+        contentEditManager.endContentEditMode()
+      }
+
+      endsDirtyAfterLoadRef.current = endsDirty
+      ignoreDirtyRef.current = true
+      useEditorStore.getState().setReady(false)
+      void instance.UI.loadDocument(source, {
+        filename: fileNameRef.current,
+        extension: "pdf",
+      })
+    },
+    []
+  )
 
   useEffect(() => {
     const viewerElement = viewerElementRef.current
@@ -64,7 +108,7 @@ export function useWebViewer(
 
     const store = useEditorStore.getState()
     store.reset()
-    store.setDocument(documentId, fileName)
+    store.setDocument(documentId, fileNameRef.current)
 
     void (webviewerModulePromise ?? import("@pdftron/webviewer"))
       .then(async ({ default: WebViewer }) => {
@@ -72,12 +116,14 @@ export function useWebViewer(
           return
         }
 
+        const bootDownloadUrl = latestDownloadUrlRef.current
+
         instance = await WebViewer(
           {
             path: WEBVIEWER_PATH,
             licenseKey: licenseKey || undefined,
-            initialDoc: downloadUrl,
-            filename: fileName,
+            initialDoc: bootDownloadUrl,
+            filename: fileNameRef.current,
             extension: "pdf",
             enableFilePicker: false,
             // Signed R2 URLs do not expose Content-Range, so skip range requests.
@@ -92,8 +138,19 @@ export function useWebViewer(
         }
 
         instanceRef.current = instance
+        loadedDownloadUrlRef.current = bootDownloadUrl
         instance.UI.enableFeatures([instance.UI.Feature.ContentEdit])
         instance.UI.setToolbarGroup("toolbarGroup-Edit")
+
+        if (process.env.NODE_ENV !== "production") {
+          // Test seam: E2E specs drive real editor behaviour (annotations,
+          // dirty state) through the Core API, which Playwright cannot
+          // reach inside the rendered canvas. Dev-only, stripped from
+          // production bundles.
+          ;(
+            window as unknown as { __pdfEditor?: unknown }
+          ).__pdfEditor = { instance, store: useEditorStore }
+        }
 
         const { documentViewer, ContentEdit } = instance.Core
         const contentEditManager = documentViewer.getContentEditManager()
@@ -108,6 +165,42 @@ export function useWebViewer(
         contentEditManager.addEventListener("contentBoxEditEnded", markDirty)
         contentEditManager.addEventListener("contentBoxAdded", markDirty)
         contentEditManager.addEventListener("contentBoxDeleted", markDirty)
+
+        const { annotationManager } = instance.Core
+
+        // Content editing mirrors editable text blocks as placeholder
+        // annotations; adding/removing those is mode setup, not a user
+        // edit. Modify actions are kept because dragging a content box
+        // only surfaces here. Everything else (highlights, ink,
+        // signatures, form widgets) is a real edit that must enable Save.
+        annotationManager.addEventListener(
+          "annotationChanged",
+          (
+            annotations: Core.Annotations.Annotation[],
+            action: string,
+            info: { imported: boolean }
+          ) => {
+            if (info.imported) {
+              return
+            }
+
+            const isRealEdit = annotations.some(
+              (annotation) =>
+                action === "modify" || !annotation.isContentEditPlaceholder()
+            )
+
+            if (isRealEdit) {
+              markDirty()
+            }
+          }
+        )
+
+        // Filling an existing form field never fires annotationChanged.
+        annotationManager.addEventListener("fieldChanged", markDirty)
+
+        // Page structure changes (rotate, reorder, insert, delete) from
+        // the thumbnail panel only surface through pagesUpdated.
+        documentViewer.addEventListener("pagesUpdated", markDirty)
 
         // Keydown inside the WebViewer iframe never reaches the parent
         // window, so Ctrl+S needs its own listener there. iframeWindow is
@@ -127,11 +220,34 @@ export function useWebViewer(
             isShortcutAttached = true
           }
 
+          // A refresh may have re-signed the URL while the viewer was
+          // still booting; swap the newer document in before declaring
+          // this one ready.
+          if (
+            loadedDownloadUrlRef.current !== null &&
+            loadedDownloadUrlRef.current !== latestDownloadUrlRef.current
+          ) {
+            loadedDownloadUrlRef.current = latestDownloadUrlRef.current
+            reloadDocumentInPlace(latestDownloadUrlRef.current, {
+              endsDirty: false,
+            })
+            return
+          }
+
           void (async () => {
             try {
               await ContentEdit.preloadWorker(contentEditManager)
               await contentEditManager.startContentEditMode()
-              useEditorStore.getState().markSaved()
+
+              if (endsDirtyAfterLoadRef.current) {
+                // Recovered bytes only exist locally until the next save.
+                endsDirtyAfterLoadRef.current = false
+                useEditorStore.getState().markDirty()
+              } else {
+                useEditorStore.getState().markSaved()
+              }
+
+              void warnWhenTextLayerMissing(documentViewer)
             } catch (error) {
               console.error("Failed to start PDF content editing:", error)
               useEditorStore
@@ -156,12 +272,35 @@ export function useWebViewer(
     return () => {
       isDisposed = true
       instanceRef.current = null
+      loadedDownloadUrlRef.current = null
       useEditorStore.getState().reset()
       void instance?.UI.dispose().catch((error: unknown) => {
         console.error("Failed to dispose WebViewer:", error)
       })
     }
-  }, [documentId, downloadUrl, fileName, licenseKey, viewerElementRef])
+  }, [documentId, licenseKey, reloadDocumentInPlace, viewerElementRef])
+
+  // A version restore refreshes the page, which re-signs the download URL.
+  // Swapping the document into the running viewer takes about a second;
+  // rebooting all of WebViewer takes several.
+  useEffect(() => {
+    if (
+      loadedDownloadUrlRef.current === null ||
+      loadedDownloadUrlRef.current === downloadUrl ||
+      !instanceRef.current
+    ) {
+      // Not booted yet: the documentLoaded drift check picks the URL up.
+      return
+    }
+
+    loadedDownloadUrlRef.current = downloadUrl
+
+    try {
+      reloadDocumentInPlace(downloadUrl, { endsDirty: false })
+    } catch (error) {
+      console.error("Failed to load the refreshed document:", error)
+    }
+  }, [downloadUrl, reloadDocumentInPlace])
 
   /**
    * Resolves as soon as the edited bytes are durably uploaded; the server
@@ -191,9 +330,13 @@ export function useWebViewer(
     // epoch lets markSaved keep the document dirty when that happens.
     const exportedEpoch = useEditorStore.getState().dirtyEpoch
 
+    let blob: Blob | undefined
+    let targetVersion: number | undefined
+
     try {
-      const blob = await exportPdfBlob(instance)
+      blob = await exportPdfBlob(instance)
       const { uploadUrl, version } = await requestSaveUrl(documentId, blob.size)
+      targetVersion = version
       await putPdfToSignedUrl(uploadUrl, blob)
 
       // The PDF is durably in storage now; what remains is server-side
@@ -202,9 +345,17 @@ export function useWebViewer(
       markSaved(exportedEpoch)
       setFinalizing(true)
 
+      // The uploaded bytes supersede any crash stash from earlier failures.
+      void clearRecoveryStash(documentId).catch((error: unknown) => {
+        console.error("Failed to clear recovered edits:", error)
+      })
+
+      const uploadedBlob = blob
+
       void completeDocumentUpload({ documentId, size: blob.size, version })
         .catch((error: unknown) => {
           console.error("Failed to finalize PDF save:", error)
+          stashForRecovery(uploadedBlob, version)
 
           // The user may have opened another document in the meantime.
           if (useEditorStore.getState().documentId !== documentId) {
@@ -227,6 +378,13 @@ export function useWebViewer(
       return true
     } catch (error) {
       console.error("Failed to save PDF:", error)
+
+      // Keep the exported bytes locally so the next visit to this
+      // document can offer to restore them (crash/offline recovery).
+      if (blob) {
+        stashForRecovery(blob, targetVersion)
+      }
+
       const message =
         error instanceof DocumentApiError
           ? error.message
@@ -234,6 +392,26 @@ export function useWebViewer(
       setError(message)
       throw error
     }
+  }
+
+  function stashForRecovery(blob: Blob, targetVersion: number | undefined) {
+    void stashRecoveryPdf({
+      documentId,
+      fileName: fileNameRef.current,
+      blob,
+      targetVersion,
+    }).catch((error: unknown) => {
+      console.error("Failed to stash edits for recovery:", error)
+    })
+  }
+
+  /**
+   * Reloads locally recovered bytes through the normal document pipeline.
+   * The load ends dirty instead of "Saved", since the recovered edits only
+   * exist in this browser until saved.
+   */
+  function loadRecoveredPdf(blob: Blob) {
+    reloadDocumentInPlace(blob, { endsDirty: true })
   }
 
   async function downloadPdf() {
@@ -256,5 +434,41 @@ export function useWebViewer(
   return {
     saveDocument,
     downloadPdf,
+    loadRecoveredPdf,
+  }
+}
+
+/**
+ * Scanned PDFs have no text layer, so content editing looks enabled but
+ * has nothing to edit. Say so honestly instead of letting the user hunt
+ * for editable text; real OCR requires the licensed Apryse module.
+ */
+async function warnWhenTextLayerMissing(
+  documentViewer: Core.DocumentViewer
+) {
+  try {
+    const pdfDocument = documentViewer.getDocument()
+
+    if (!pdfDocument) {
+      return
+    }
+
+    const pagesToSample = Math.min(pdfDocument.getPageCount(), 2)
+
+    for (let page = 1; page <= pagesToSample; page += 1) {
+      const text = await pdfDocument.loadPageText(page)
+
+      if (text.trim().length > 0) {
+        return
+      }
+    }
+
+    useEditorStore
+      .getState()
+      .setNotice(
+        "This PDF has no selectable text, so text editing is unavailable. It may be a scanned document; OCR is not supported yet. You can still annotate, sign, and save it."
+      )
+  } catch (error) {
+    console.error("Failed to inspect the PDF text layer:", error)
   }
 }

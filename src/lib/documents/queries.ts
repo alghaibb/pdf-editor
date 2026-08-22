@@ -122,17 +122,30 @@ export async function markDocumentVersionSaved(input: {
   }
 }
 
-export async function listDocumentVersions(documentId: string, userId: string) {
+export async function listDocumentVersions(
+  documentId: string,
+  userId: string,
+  options: {
+    /** Return only versions older than this version number. */
+    cursor?: number
+    /** Callers pass pageSize + 1 to detect whether another page exists. */
+    take: number
+  }
+) {
   return prisma.documentVersion.findMany({
     where: {
       documentId,
       document: {
         userId,
       },
+      ...(options.cursor !== undefined
+        ? { version: { lt: options.cursor } }
+        : {}),
     },
     orderBy: {
       version: "desc",
     },
+    take: options.take,
     select: {
       version: true,
       size: true,

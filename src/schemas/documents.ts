@@ -48,6 +48,14 @@ export const restoreVersionSchema = z.object({
   version: z.number().int().positive(),
 })
 
+// Coerced because the version arrives as a dynamic route parameter string.
+export const documentVersionParamSchema = z.coerce.number().int().positive()
+
+// Coerced because the cursor arrives as a URL search parameter string.
+export const listVersionsQuerySchema = z.object({
+  cursor: z.coerce.number().int().positive().optional(),
+})
+
 export type CreateUploadUrlInput = z.infer<typeof createUploadUrlSchema>
 export type CompleteDocumentInput = z.infer<typeof completeDocumentSchema>
 export type RenameDocumentInput = z.infer<typeof renameDocumentSchema>
