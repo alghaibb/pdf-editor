@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import type { Metadata } from "next"
 
 import { HomeClose } from "@/app/(home)/_components/home-close"
@@ -5,30 +6,38 @@ import { HomeFooter } from "@/app/(home)/_components/home-footer"
 import { HomeHeader } from "@/app/(home)/_components/home-header"
 import { HomeHero } from "@/app/(home)/_components/home-hero"
 import { HomeProof } from "@/app/(home)/_components/home-proof"
+import {
+  HomeCloseFromSession,
+  HomeFooterFromSession,
+  HomeHeaderFromSession,
+  HomeHeroFromSession,
+} from "@/app/(home)/_components/home-session"
 import { HomeSteps } from "@/app/(home)/_components/home-steps"
-import { getSession } from "@/lib/auth/session"
 
 export const metadata: Metadata = {
   description: "Edit real PDF text in the browser, then save the actual file.",
 }
 
-export const instant = false
-
-export default async function HomePage() {
-  const session = await getSession()
-  const isAuthenticated = Boolean(session)
-
+export default function HomePage() {
   return (
     <div className="relative flex min-h-full flex-1 flex-col bg-background">
       <div className="relative z-10 flex min-h-full flex-1 flex-col">
-        <HomeHeader isAuthenticated={isAuthenticated} />
+        <Suspense fallback={<HomeHeader isAuthenticated={false} />}>
+          <HomeHeaderFromSession />
+        </Suspense>
         <main className="flex flex-1 flex-col">
-          <HomeHero isAuthenticated={isAuthenticated} />
+          <Suspense fallback={<HomeHero isAuthenticated={false} />}>
+            <HomeHeroFromSession />
+          </Suspense>
           <HomeProof />
           <HomeSteps />
-          <HomeClose isAuthenticated={isAuthenticated} />
+          <Suspense fallback={<HomeClose isAuthenticated={false} />}>
+            <HomeCloseFromSession />
+          </Suspense>
         </main>
-        <HomeFooter isAuthenticated={isAuthenticated} />
+        <Suspense fallback={<HomeFooter isAuthenticated={false} />}>
+          <HomeFooterFromSession />
+        </Suspense>
       </div>
     </div>
   )

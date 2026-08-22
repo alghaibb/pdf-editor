@@ -1,5 +1,5 @@
+import { DeferredToaster } from "@/components/deferred-toaster"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 import type { Metadata, Viewport } from "next"
 import { Geist_Mono, Noto_Sans, Playfair_Display } from "next/font/google"
@@ -7,20 +7,26 @@ import "./globals.css"
 
 const playfairDisplayHeading = Playfair_Display({
   subsets: ["latin"],
+  weight: ["600"],
+  style: ["normal", "italic"],
   variable: "--font-heading",
   display: "swap",
 })
 
 const notoSans = Noto_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
   variable: "--font-sans",
   display: "swap",
 })
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
   subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-geist-mono",
   display: "swap",
+  // Step numbers and folio indexes; do not compete with the LCP heading.
+  preload: false,
 })
 
 export const metadata: Metadata = {
@@ -56,7 +62,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           disableTransitionOnChange
         >
           {children}
-          <Toaster />
+          <DeferredToaster />
         </ThemeProvider>
       </body>
     </html>
