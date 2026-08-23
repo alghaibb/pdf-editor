@@ -31,6 +31,10 @@ import {
 } from "../_lib/page-thumbs"
 import { OcrError, recognizeScannedPages } from "../_lib/ocr"
 import { clearRecoveryStash, stashRecoveryPdf } from "../_lib/recovery"
+import {
+  applySignatureImage,
+  enterContentEditMode,
+} from "../_lib/signatures"
 
 type UseWebViewerOptions = {
   licenseKey?: string
@@ -310,6 +314,7 @@ export function useWebViewer(
               }
 
               void warnWhenTextLayerMissing(documentViewer)
+              useEditorStore.getState().setEditorMode("content")
             } catch (error) {
               console.error("Failed to start PDF content editing:", error)
               useEditorStore
@@ -565,6 +570,7 @@ export function useWebViewer(
       await action()
       await instance.Core.ContentEdit.preloadWorker(contentEditManager)
       await contentEditManager.startContentEditMode()
+      useEditorStore.getState().setEditorMode("content")
       useEditorStore.getState().markDirty()
     } catch (error) {
       try {
@@ -707,6 +713,55 @@ export function useWebViewer(
     }
   }
 
+  async function toggleSignMode() {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    const isSigning = useEditorStore.getState().editorMode === "sign"
+
+    try {
+      if (isSigning) {
+        await enterContentEditMode(instance)
+        useEditorStore.getState().setEditorMode("content")
+        useEditorStore.getState().setNotice(null)
+        refreshHistoryAvailability(instance)
+        return
+      }
+
+      throw new Error("Create a signature first.")
+    } catch (error) {
+      console.error("Failed to switch signature mode:", error)
+      throw error instanceof Error
+        ? error
+        : new Error("Could not start signing.")
+    }
+  }
+
+  async function applySignature(imageDataUrl: string) {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    try {
+      await applySignatureImage(instance, imageDataUrl)
+      useEditorStore.getState().setEditorMode("sign")
+      useEditorStore.getState().setNotice(
+        "Click the page to place your signature. Save to keep it in the file."
+      )
+      refreshHistoryAvailability(instance)
+    } catch (error) {
+      console.error("Failed to apply signature:", error)
+      throw error instanceof Error
+        ? error
+        : new Error("The signature could not be applied.")
+    }
+  }
+
   const getPageThumbnail = useCallback(async (page: number) => {
     const instance = instanceRef.current
 
@@ -731,6 +786,8 @@ export function useWebViewer(
     getPageThumbnail,
     undoEdit,
     redoEdit,
+    toggleSignMode,
+    applySignature,
   }
 }
 

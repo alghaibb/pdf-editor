@@ -39,11 +39,17 @@ type EditorState = {
   pageEpoch: number
   canUndo: boolean
   canRedo: boolean
+  /**
+   * Content edit is the default. Sign mode ends it so Apryse can place
+   * a drawn, typed, or uploaded signature as a real annotation.
+   */
+  editorMode: "content" | "sign"
   setDocument: (documentId: string, fileName: string) => void
   setReady: (isReady: boolean) => void
   setPageInfo: (currentPage: number, pageCount: number) => void
   bumpPageEpoch: () => void
   setHistoryAvailability: (canUndo: boolean, canRedo: boolean) => void
+  setEditorMode: (editorMode: "content" | "sign") => void
   markDirty: () => void
   markSaved: (savedEpoch?: number) => void
   setSaving: (isSaving: boolean) => void
@@ -71,6 +77,7 @@ const initialState = {
   pageEpoch: 0,
   canUndo: false,
   canRedo: false,
+  editorMode: "content" as const,
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -120,5 +127,6 @@ export const useEditorStore = create<EditorState>((set) => ({
   bumpPageEpoch: () =>
     set((state) => ({ pageEpoch: state.pageEpoch + 1 })),
   setHistoryAvailability: (canUndo, canRedo) => set({ canUndo, canRedo }),
+  setEditorMode: (editorMode) => set({ editorMode }),
   reset: () => set(initialState),
 }))

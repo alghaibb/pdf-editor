@@ -13,6 +13,7 @@ import { LastPageError } from "../_lib/delete-pages"
 import { OcrError } from "../_lib/ocr"
 import { EditorToolbar } from "./editor-toolbar"
 import { PageThumbnails } from "./page-thumbnails"
+import { SignDocumentDialog } from "./sign-document-dialog"
 import { useAutosave } from "../_hooks/use-autosave"
 import { useEditorKeyboardShortcuts } from "../_hooks/use-editor-keyboard-shortcuts"
 import { useWebViewer } from "../_hooks/use-webviewer"
@@ -56,6 +57,8 @@ export function PdfEditor({
     getPageThumbnail,
     undoEdit,
     redoEdit,
+    toggleSignMode,
+    applySignature,
   } = useWebViewer(
     viewerRef,
     {
@@ -71,6 +74,7 @@ export function PdfEditor({
   const errorMessage = useEditorStore((state) => state.errorMessage)
   const noticeMessage = useEditorStore((state) => state.noticeMessage)
 
+  const [isSignOpen, setIsSignOpen] = useState(false)
   const [recoveryStash, setRecoveryStash] = useState<RecoveryStash | null>(
     null
   )
@@ -185,6 +189,35 @@ export function PdfEditor({
     (page: number) => getPageThumbnail(page),
     [getPageThumbnail]
   )
+
+  async function handleToggleSign() {
+    if (useEditorStore.getState().editorMode === "sign") {
+      try {
+        await toggleSignMode()
+      } catch (error) {
+        console.error("Failed to switch signature mode:", error)
+        toast.error(
+          error instanceof Error ? error.message : "Could not return to text editing."
+        )
+      }
+      return
+    }
+
+    setIsSignOpen(true)
+  }
+
+  async function handleApplySignature(imageDataUrl: string) {
+    try {
+      await applySignature(imageDataUrl)
+      toast.success("Click the page to place the signature.")
+    } catch (error) {
+      console.error("Failed to apply signature:", error)
+      toast.error(
+        error instanceof Error ? error.message : "The signature could not be applied."
+      )
+      throw error
+    }
+  }
 
   async function handleUndo() {
     try {
@@ -307,6 +340,12 @@ export function PdfEditor({
         onReadCurrentPage={readCurrentPage}
         onUndo={handleUndo}
         onRedo={handleRedo}
+        onToggleSign={handleToggleSign}
+      />
+      <SignDocumentDialog
+        open={isSignOpen}
+        onOpenChange={setIsSignOpen}
+        onApply={handleApplySignature}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
         <PageThumbnails
@@ -335,7 +374,11 @@ export function PdfEditor({
         {noticeMessage && !errorMessage ? (
           <div className="absolute top-4 right-4 left-4 z-20 md:left-auto md:w-96">
             <Alert>
-              <AlertTitle>About this document</AlertTitle>
+              <AlertTitle>
+                {noticeMessage.includes("signature")
+                  ? "Sign this document"
+                  : "About this document"}
+              </AlertTitle>
               <AlertDescription>
                 {noticeMessage}
                 <span className="mt-2 flex flex-wrap gap-2">
