@@ -17,6 +17,11 @@ import {
   exportPdfBlob,
   handleSaveShortcutEvent,
 } from "../_lib/editor-utils"
+import {
+  getCurrentPageInfo,
+  LastPageError,
+  removeCurrentPage,
+} from "../_lib/delete-pages"
 import { insertPagesFromPdfFile } from "../_lib/insert-pages"
 import { OcrError, recognizeScannedPages } from "../_lib/ocr"
 import { clearRecoveryStash, stashRecoveryPdf } from "../_lib/recovery"
@@ -473,13 +478,10 @@ export function useWebViewer(
     }
   }
 
-  async function insertPagesFromPdf(file: File) {
-    const instance = instanceRef.current
-
-    if (!instance) {
-      throw new Error("The editor is still loading.")
-    }
-
+  async function runPageStructureChange(
+    instance: WebViewerInstance,
+    action: () => Promise<void>
+  ) {
     const contentEditManager =
       instance.Core.documentViewer.getContentEditManager()
 
@@ -488,19 +490,35 @@ export function useWebViewer(
     }
 
     try {
-      await insertPagesFromPdfFile(instance, file)
+      await action()
       await instance.Core.ContentEdit.preloadWorker(contentEditManager)
       await contentEditManager.startContentEditMode()
       useEditorStore.getState().markDirty()
     } catch (error) {
-      console.error("Failed to insert PDF pages:", error)
-
       try {
         await instance.Core.ContentEdit.preloadWorker(contentEditManager)
         await contentEditManager.startContentEditMode()
       } catch (restartError) {
         console.error("Failed to restart content editing:", restartError)
       }
+
+      throw error
+    }
+  }
+
+  async function insertPagesFromPdf(file: File) {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    try {
+      await runPageStructureChange(instance, () =>
+        insertPagesFromPdfFile(instance, file)
+      )
+    } catch (error) {
+      console.error("Failed to insert PDF pages:", error)
 
       if (error instanceof PdfFileError) {
         throw new Error(pdfFileErrorMessage(error.code))
@@ -512,12 +530,48 @@ export function useWebViewer(
     }
   }
 
+  function readCurrentPage() {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      return null
+    }
+
+    return getCurrentPageInfo(instance)
+  }
+
+  async function deleteCurrentPage() {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    try {
+      await runPageStructureChange(instance, async () => {
+        await removeCurrentPage(instance)
+      })
+    } catch (error) {
+      console.error("Failed to delete the current page:", error)
+
+      if (error instanceof LastPageError) {
+        throw error
+      }
+
+      throw error instanceof Error
+        ? error
+        : new Error("The page could not be deleted.")
+    }
+  }
+
   return {
     saveDocument,
     downloadPdf,
     loadRecoveredPdf,
     recognizeText,
     insertPagesFromPdf,
+    deleteCurrentPage,
+    readCurrentPage,
   }
 }
 

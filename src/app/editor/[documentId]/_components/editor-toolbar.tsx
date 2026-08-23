@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { cn } from "@/lib/utils"
 import { useEditorStore } from "@/stores/editor-store"
+import type { CurrentPageInfo } from "../_lib/delete-pages"
 import { DocumentNameEditor } from "./document-name-editor"
 import { EditorMoreActions } from "./editor-more-actions"
 import { LeaveEditorLink } from "./leave-editor-link"
@@ -19,6 +20,8 @@ type EditorToolbarProps = {
   onDownload: () => Promise<void>
   onRecognizeText: () => Promise<void>
   onInsertPages: (file: File) => Promise<void>
+  onDeleteCurrentPage: () => Promise<void>
+  onReadCurrentPage: () => CurrentPageInfo | null
 }
 
 export function EditorToolbar({
@@ -27,6 +30,8 @@ export function EditorToolbar({
   onDownload,
   onRecognizeText,
   onInsertPages,
+  onDeleteCurrentPage,
+  onReadCurrentPage,
 }: EditorToolbarProps) {
   const isReady = useEditorStore((state) => state.isReady)
   const isDirty = useEditorStore((state) => state.isDirty)
@@ -86,6 +91,8 @@ export function EditorToolbar({
             documentId={documentId}
             onRecognizeText={onRecognizeText}
             onInsertPages={onInsertPages}
+            onDeleteCurrentPage={onDeleteCurrentPage}
+            onReadCurrentPage={onReadCurrentPage}
           />
           <VersionHistory documentId={documentId} />
           <ThemeToggle className="size-9 lg:size-10" />

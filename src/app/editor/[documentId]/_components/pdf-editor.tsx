@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useEditorStore } from "@/stores/editor-store"
+import { LastPageError } from "../_lib/delete-pages"
 import { OcrError } from "../_lib/ocr"
 import { EditorToolbar } from "./editor-toolbar"
 import { useAutosave } from "../_hooks/use-autosave"
@@ -46,6 +47,8 @@ export function PdfEditor({
     loadRecoveredPdf,
     recognizeText,
     insertPagesFromPdf,
+    deleteCurrentPage,
+    readCurrentPage,
   } = useWebViewer(
     viewerRef,
     {
@@ -102,6 +105,22 @@ export function PdfEditor({
       }
 
       toast.error("Could not read text from the page images.")
+    }
+  }
+
+  async function handleDeleteCurrentPage() {
+    try {
+      await deleteCurrentPage()
+      toast.success("Page deleted. Save to keep the change.")
+    } catch (error) {
+      console.error("Failed to delete the current page:", error)
+      toast.error(
+        error instanceof LastPageError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "The page could not be deleted."
+      )
     }
   }
 
@@ -229,6 +248,8 @@ export function PdfEditor({
         onDownload={handleDownload}
         onRecognizeText={handleRecognizeText}
         onInsertPages={handleInsertPages}
+        onDeleteCurrentPage={handleDeleteCurrentPage}
+        onReadCurrentPage={readCurrentPage}
       />
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         {!isReady ? (
