@@ -32,6 +32,39 @@ export function handleSaveShortcutEvent(
   onSave()
 }
 
+/**
+ * Ctrl/Cmd+Z undoes; Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z redoes. Used on the
+ * parent window so shortcuts still work when focus is outside the iframe.
+ */
+export function handleHistoryShortcutEvent(
+  event: KeyboardEvent,
+  onUndo: () => void,
+  onRedo: () => void
+) {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+    return
+  }
+
+  const key = event.key.toLowerCase()
+
+  if (key === "z" && event.shiftKey) {
+    event.preventDefault()
+    onRedo()
+    return
+  }
+
+  if (key === "z") {
+    event.preventDefault()
+    onUndo()
+    return
+  }
+
+  if (key === "y" && !event.shiftKey) {
+    event.preventDefault()
+    onRedo()
+  }
+}
+
 export async function exportPdfBlob(
   instance: WebViewerInstance
 ): Promise<Blob> {

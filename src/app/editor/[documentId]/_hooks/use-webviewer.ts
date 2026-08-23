@@ -20,9 +20,15 @@ import {
 import {
   getCurrentPageInfo,
   LastPageError,
-  removeCurrentPage,
+  removePage,
 } from "../_lib/delete-pages"
+import { getApryseHistory } from "../_lib/history"
 import { insertPagesFromPdfFile } from "../_lib/insert-pages"
+import {
+  goToPage,
+  loadPageThumbnail,
+  rotatePage,
+} from "../_lib/page-thumbs"
 import { OcrError, recognizeScannedPages } from "../_lib/ocr"
 import { clearRecoveryStash, stashRecoveryPdf } from "../_lib/recovery"
 
@@ -31,6 +37,7 @@ type UseWebViewerOptions = {
   documentId: string
   fileName: string
   downloadUrl: string
+  currentVersion: number
   onSaveShortcut?: () => void
 }
 
@@ -47,6 +54,7 @@ export function useWebViewer(
     documentId,
     fileName,
     downloadUrl,
+    currentVersion,
     onSaveShortcut,
   }: UseWebViewerOptions
 ) {
@@ -62,14 +70,17 @@ export function useWebViewer(
   const onSaveShortcutRef = useRef(onSaveShortcut)
   const fileNameRef = useRef(fileName)
   const latestDownloadUrlRef = useRef(downloadUrl)
+  const latestVersionRef = useRef(currentVersion)
   // The URL the viewer actually has loaded; null until the first boot
   // finishes and after disposal.
   const loadedDownloadUrlRef = useRef<string | null>(null)
+  const loadedVersionRef = useRef<number | null>(null)
 
   useEffect(() => {
     onSaveShortcutRef.current = onSaveShortcut
     fileNameRef.current = fileName
     latestDownloadUrlRef.current = downloadUrl
+    latestVersionRef.current = currentVersion
   })
 
   /**
@@ -147,6 +158,7 @@ export function useWebViewer(
 
         instanceRef.current = instance
         loadedDownloadUrlRef.current = bootDownloadUrl
+        loadedVersionRef.current = latestVersionRef.current
         instance.UI.enableFeatures([instance.UI.Feature.ContentEdit])
         instance.UI.setToolbarGroup("toolbarGroup-Edit")
 
@@ -163,11 +175,25 @@ export function useWebViewer(
         const { documentViewer, ContentEdit } = instance.Core
         const contentEditManager = documentViewer.getContentEditManager()
 
+        const refreshHistory = () => {
+          const viewer = instanceRef.current
+
+          if (!viewer) {
+            return
+          }
+
+          const history = getApryseHistory(viewer)
+          useEditorStore
+            .getState()
+            .setHistoryAvailability(history.canUndo(), history.canRedo())
+        }
+
         const markDirty = () => {
           if (ignoreDirtyRef.current) {
             return
           }
           useEditorStore.getState().markDirty()
+          refreshHistory()
         }
 
         contentEditManager.addEventListener("contentBoxEditEnded", markDirty)
@@ -208,7 +234,17 @@ export function useWebViewer(
 
         // Page structure changes (rotate, reorder, insert, delete) from
         // the thumbnail panel only surface through pagesUpdated.
-        documentViewer.addEventListener("pagesUpdated", markDirty)
+        documentViewer.addEventListener("pagesUpdated", () => {
+          syncPageInfo(documentViewer)
+          useEditorStore.getState().bumpPageEpoch()
+          markDirty()
+        })
+        documentViewer.addEventListener("pageNumberUpdated", (pageNumber: number) => {
+          const loaded = documentViewer.getDocument()
+          useEditorStore
+            .getState()
+            .setPageInfo(pageNumber, loaded?.getPageCount() ?? 1)
+        })
 
         // Keydown inside the WebViewer iframe never reaches the parent
         // window, so Ctrl+S needs its own listener there. iframeWindow is
@@ -216,8 +252,11 @@ export function useWebViewer(
         // attaches on documentLoaded, when the iframe certainly exists.
         // Capture phase wins over WebViewer's internal handlers; the iframe
         // (and listener) die with UI.dispose().
-        const onIframeKeydown = (event: KeyboardEvent) =>
+        const onIframeKeydown = (event: KeyboardEvent) => {
           handleSaveShortcutEvent(event, () => onSaveShortcutRef.current?.())
+          // Content-edit undo stays with Apryse inside the iframe. Page
+          // undo is triggered from the parent toolbar / window shortcuts.
+        }
         let isShortcutAttached = false
 
         documentViewer.addEventListener("documentLoaded", () => {
@@ -228,13 +267,13 @@ export function useWebViewer(
             isShortcutAttached = true
           }
 
-          // A refresh may have re-signed the URL while the viewer was
-          // still booting; swap the newer document in before declaring
-          // this one ready.
+          // Re-signed URLs for the same saved version are the same file.
+          // Reloading on every RSC refresh kept the skeleton up forever.
           if (
-            loadedDownloadUrlRef.current !== null &&
-            loadedDownloadUrlRef.current !== latestDownloadUrlRef.current
+            loadedVersionRef.current !== null &&
+            loadedVersionRef.current !== latestVersionRef.current
           ) {
+            loadedVersionRef.current = latestVersionRef.current
             loadedDownloadUrlRef.current = latestDownloadUrlRef.current
             reloadDocumentInPlace(latestDownloadUrlRef.current, {
               endsDirty: false,
@@ -242,10 +281,25 @@ export function useWebViewer(
             return
           }
 
+          // Show the PDF as soon as pages exist. Content-edit workers can
+          // stall; they must not own the loading skeleton.
+          useEditorStore.getState().setReady(true)
+
           void (async () => {
+            let timeoutId = 0
+
             try {
-              await ContentEdit.preloadWorker(contentEditManager)
-              await contentEditManager.startContentEditMode()
+              await Promise.race([
+                (async () => {
+                  await ContentEdit.preloadWorker(contentEditManager)
+                  await contentEditManager.startContentEditMode()
+                })(),
+                new Promise<void>((_resolve, reject) => {
+                  timeoutId = window.setTimeout(() => {
+                    reject(new Error("Content editing took too long to start."))
+                  }, 20_000)
+                }),
+              ])
 
               if (endsDirtyAfterLoadRef.current) {
                 // Recovered bytes only exist locally until the next save.
@@ -264,8 +318,24 @@ export function useWebViewer(
                   "This PDF could not enter content editing. It may not contain a usable text layer."
                 )
             } finally {
+              window.clearTimeout(timeoutId)
               ignoreDirtyRef.current = false
-              useEditorStore.getState().setReady(true)
+
+              try {
+                syncPageInfo(documentViewer)
+              } catch (error) {
+                console.error("Failed to sync page info:", error)
+              }
+
+              const viewer = instanceRef.current
+
+              if (viewer) {
+                try {
+                  refreshHistoryAvailability(viewer)
+                } catch (error) {
+                  console.error("Failed to refresh undo history:", error)
+                }
+              }
             }
           })()
         })
@@ -281,6 +351,7 @@ export function useWebViewer(
       isDisposed = true
       instanceRef.current = null
       loadedDownloadUrlRef.current = null
+      loadedVersionRef.current = null
       useEditorStore.getState().reset()
       void instance?.UI.dispose().catch((error: unknown) => {
         console.error("Failed to dispose WebViewer:", error)
@@ -288,27 +359,28 @@ export function useWebViewer(
     }
   }, [documentId, licenseKey, reloadDocumentInPlace, viewerElementRef])
 
-  // A version restore refreshes the page, which re-signs the download URL.
-  // Swapping the document into the running viewer takes about a second;
-  // rebooting all of WebViewer takes several.
+  // Restore copies a previous file over current.pdf and bumps
+  // currentVersion. A new signed URL alone is not a new file — Cache
+  // Components re-renders this page often and would otherwise reload
+  // the viewer in a loop.
   useEffect(() => {
     if (
       loadedDownloadUrlRef.current === null ||
-      loadedDownloadUrlRef.current === downloadUrl ||
+      loadedVersionRef.current === currentVersion ||
       !instanceRef.current
     ) {
-      // Not booted yet: the documentLoaded drift check picks the URL up.
       return
     }
 
+    loadedVersionRef.current = currentVersion
     loadedDownloadUrlRef.current = downloadUrl
 
     try {
       reloadDocumentInPlace(downloadUrl, { endsDirty: false })
     } catch (error) {
-      console.error("Failed to load the refreshed document:", error)
+      console.error("Failed to load the restored document:", error)
     }
-  }, [downloadUrl, reloadDocumentInPlace])
+  }, [currentVersion, downloadUrl, reloadDocumentInPlace])
 
   /**
    * Resolves as soon as the edited bytes are durably uploaded; the server
@@ -506,6 +578,37 @@ export function useWebViewer(
     }
   }
 
+  function refreshHistoryAvailability(instance: WebViewerInstance) {
+    const history = getApryseHistory(instance)
+    useEditorStore
+      .getState()
+      .setHistoryAvailability(history.canUndo(), history.canRedo())
+  }
+
+  async function undoEdit() {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    const history = getApryseHistory(instance)
+    history.undo()
+    refreshHistoryAvailability(instance)
+  }
+
+  async function redoEdit() {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    const history = getApryseHistory(instance)
+    history.redo()
+    refreshHistoryAvailability(instance)
+  }
+
   async function insertPagesFromPdf(file: File) {
     const instance = instanceRef.current
 
@@ -517,6 +620,7 @@ export function useWebViewer(
       await runPageStructureChange(instance, () =>
         insertPagesFromPdfFile(instance, file)
       )
+      refreshHistoryAvailability(instance)
     } catch (error) {
       console.error("Failed to insert PDF pages:", error)
 
@@ -540,7 +644,7 @@ export function useWebViewer(
     return getCurrentPageInfo(instance)
   }
 
-  async function deleteCurrentPage() {
+  async function deletePageAt(page: number) {
     const instance = instanceRef.current
 
     if (!instance) {
@@ -549,10 +653,11 @@ export function useWebViewer(
 
     try {
       await runPageStructureChange(instance, async () => {
-        await removeCurrentPage(instance)
+        await removePage(instance, page)
       })
+      refreshHistoryAvailability(instance)
     } catch (error) {
-      console.error("Failed to delete the current page:", error)
+      console.error("Failed to delete the page:", error)
 
       if (error instanceof LastPageError) {
         throw error
@@ -564,6 +669,54 @@ export function useWebViewer(
     }
   }
 
+  async function deleteCurrentPage() {
+    const info = readCurrentPage()
+
+    if (!info) {
+      throw new Error("The editor is still loading.")
+    }
+
+    await deletePageAt(info.page)
+  }
+
+  function jumpToPage(page: number) {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    goToPage(instance, page)
+  }
+
+  async function rotatePageAt(page: number) {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    try {
+      await runPageStructureChange(instance, () => rotatePage(instance, page))
+      refreshHistoryAvailability(instance)
+    } catch (error) {
+      console.error("Failed to rotate the page:", error)
+      throw error instanceof Error
+        ? error
+        : new Error("The page could not be rotated.")
+    }
+  }
+
+  const getPageThumbnail = useCallback(async (page: number) => {
+    const instance = instanceRef.current
+
+    if (!instance) {
+      throw new Error("The editor is still loading.")
+    }
+
+    return loadPageThumbnail(instance, page)
+  }, [])
+
   return {
     saveDocument,
     downloadPdf,
@@ -571,8 +724,24 @@ export function useWebViewer(
     recognizeText,
     insertPagesFromPdf,
     deleteCurrentPage,
+    deletePageAt,
     readCurrentPage,
+    jumpToPage,
+    rotatePageAt,
+    getPageThumbnail,
+    undoEdit,
+    redoEdit,
   }
+}
+
+function syncPageInfo(documentViewer: Core.DocumentViewer) {
+  const loaded = documentViewer.getDocument()
+  useEditorStore
+    .getState()
+    .setPageInfo(
+      documentViewer.getCurrentPage(),
+      loaded?.getPageCount() ?? 1
+    )
 }
 
 /**

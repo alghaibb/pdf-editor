@@ -3,8 +3,9 @@ import { NextResponse } from "next/server"
 import { rateLimitedResponse, isRateLimited } from "@/lib/api/rate-limit"
 import { apiError } from "@/lib/api/response"
 import { handleStorageError } from "@/lib/api/session"
-import { getShareByToken } from "@/lib/documents/queries"
-import { createCurrentPdfDownloadUrl } from "@/lib/r2/objects"
+import { getDocumentVersion, getShareByToken } from "@/lib/documents/queries"
+import { versionPdfKey } from "@/lib/r2/keys"
+import { createPdfDownloadUrl } from "@/lib/r2/objects"
 import { shareTokenSchema } from "@/schemas/documents"
 
 export async function GET(
@@ -36,8 +37,18 @@ export async function GET(
       return apiError("SHARE_EXPIRED", "That download link has expired.", 410)
     }
 
-    const downloadUrl = await createCurrentPdfDownloadUrl(
-      share.document.storageKey,
+    const frozen = await getDocumentVersion(share.document.id, share.version)
+
+    if (!frozen) {
+      return apiError(
+        "VERSION_NOT_FOUND",
+        "That saved copy is no longer available.",
+        410
+      )
+    }
+
+    const downloadUrl = await createPdfDownloadUrl(
+      versionPdfKey(share.document.storageKey, share.version),
       share.document.name,
       { disposition: "attachment" }
     )

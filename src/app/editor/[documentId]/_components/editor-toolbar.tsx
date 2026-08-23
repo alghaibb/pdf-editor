@@ -1,8 +1,14 @@
 "use client"
 
-import { DownloadIcon, LayoutDashboardIcon, SaveIcon } from "lucide-react"
+import { useState } from "react"
+import {
+  DownloadIcon,
+  LayoutDashboardIcon,
+  Redo2Icon,
+  SaveIcon,
+  Undo2Icon,
+} from "lucide-react"
 
-import { ThemeToggle } from "@/components/theme-toggle"
 import { buttonVariants } from "@/components/ui/button"
 import { LoadingButton } from "@/components/ui/loading-button"
 import { cn } from "@/lib/utils"
@@ -21,7 +27,10 @@ type EditorToolbarProps = {
   onRecognizeText: () => Promise<void>
   onInsertPages: (file: File) => Promise<void>
   onDeleteCurrentPage: () => Promise<void>
+  onRotateCurrentPage: () => Promise<void>
   onReadCurrentPage: () => CurrentPageInfo | null
+  onUndo: () => Promise<void>
+  onRedo: () => Promise<void>
 }
 
 export function EditorToolbar({
@@ -31,74 +40,27 @@ export function EditorToolbar({
   onRecognizeText,
   onInsertPages,
   onDeleteCurrentPage,
+  onRotateCurrentPage,
   onReadCurrentPage,
+  onUndo,
+  onRedo,
 }: EditorToolbarProps) {
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const isReady = useEditorStore((state) => state.isReady)
   const isDirty = useEditorStore((state) => state.isDirty)
   const isSaving = useEditorStore((state) => state.isSaving)
   const isFinalizing = useEditorStore((state) => state.isFinalizing)
   const isDownloading = useEditorStore((state) => state.isDownloading)
+  const canUndo = useEditorStore((state) => state.canUndo)
+  const canRedo = useEditorStore((state) => state.canRedo)
 
   return (
-    <header className="min-w-0 shrink-0 overflow-hidden border-b border-border">
-      <div className="flex min-w-0 items-center gap-2 px-2 py-2 sm:px-4 lg:gap-4 lg:px-6">
-        <LeaveEditorLink
-          href="/"
-          className="font-heading shrink-0 text-xs font-semibold tracking-[0.14em] uppercase lg:text-sm lg:tracking-[0.2em]"
-        >
-          PDF Editor
-        </LeaveEditorLink>
-        <DocumentNameEditor
-          documentId={documentId}
-          className="hidden lg:flex"
-        />
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-          <SaveStatus
-            compact
-            className="max-w-18 truncate tracking-[0.12em] lg:max-w-none"
-          />
-          <LoadingButton
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            className="lg:h-10 lg:w-auto lg:gap-1.5 lg:px-6"
-            loading={isDownloading}
-            loadingText={
-              <span className="hidden lg:inline">Downloading...</span>
-            }
-            disabled={!isReady || isSaving}
-            aria-label="Download PDF"
-            onClick={() => void onDownload()}
-          >
-            <DownloadIcon data-icon="inline-start" />
-            <span className="hidden lg:inline">Download</span>
-          </LoadingButton>
-          <LoadingButton
-            type="button"
-            variant="glow"
-            size="icon-sm"
-            className="lg:h-10 lg:w-auto lg:gap-1.5 lg:px-6"
-            loading={isSaving}
-            loadingText={<span className="hidden lg:inline">Saving...</span>}
-            disabled={!isReady || isDownloading || isFinalizing || !isDirty}
-            aria-label="Save PDF"
-            onClick={() => void onSave()}
-          >
-            <SaveIcon data-icon="inline-start" />
-            <span className="hidden lg:inline">Save</span>
-          </LoadingButton>
-          <EditorMoreActions
-            documentId={documentId}
-            onRecognizeText={onRecognizeText}
-            onInsertPages={onInsertPages}
-            onDeleteCurrentPage={onDeleteCurrentPage}
-            onReadCurrentPage={onReadCurrentPage}
-          />
-          <VersionHistory documentId={documentId} />
-          <ThemeToggle className="size-9 lg:size-10" />
+    <header className="min-w-0 shrink-0 border-b border-border">
+      <div className="flex min-w-0 items-center gap-2 px-2 py-2 sm:gap-3 sm:px-4 lg:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-2 lg:gap-4">
           <LeaveEditorLink
             href="/dashboard"
-            aria-label="Dashboard"
+            aria-label="Back to dashboard"
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon-sm" }),
               "lg:hidden"
@@ -108,29 +70,88 @@ export function EditorToolbar({
           </LeaveEditorLink>
           <LeaveEditorLink
             href="/"
-            className={cn(
-              buttonVariants({ variant: "ghost" }),
-              "hidden lg:inline-flex"
-            )}
+            className="font-heading hidden shrink-0 text-sm font-semibold tracking-[0.2em] uppercase lg:inline"
           >
-            Home
+            PDF Editor
           </LeaveEditorLink>
-          <LeaveEditorLink
-            href="/dashboard"
-            className={cn(
-              buttonVariants({ variant: "ghost" }),
-              "hidden lg:inline-flex"
-            )}
-          >
-            Dashboard
-          </LeaveEditorLink>
+          <DocumentNameEditor
+            documentId={documentId}
+            className="min-w-0 flex-1 text-sm"
+          />
         </div>
-      </div>
-      <div className="min-w-0 border-t border-border px-2 py-1.5 lg:hidden">
-        <DocumentNameEditor
-          documentId={documentId}
-          className="w-full text-xs text-muted-foreground"
-        />
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          <SaveStatus compact className="hidden tracking-[0.12em] sm:block" />
+          <LoadingButton
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="hidden sm:inline-flex"
+            disabled={!isReady || isSaving || !canUndo}
+            aria-label="Undo"
+            onClick={() => void onUndo()}
+          >
+            <Undo2Icon />
+          </LoadingButton>
+          <LoadingButton
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="hidden sm:inline-flex"
+            disabled={!isReady || isSaving || !canRedo}
+            aria-label="Redo"
+            onClick={() => void onRedo()}
+          >
+            <Redo2Icon />
+          </LoadingButton>
+          <LoadingButton
+            type="button"
+            variant="outline"
+            size="sm"
+            className="hidden lg:inline-flex"
+            loading={isDownloading}
+            loadingText="Downloading..."
+            disabled={!isReady || isSaving}
+            aria-label="Download PDF"
+            onClick={() => void onDownload()}
+          >
+            <DownloadIcon data-icon="inline-start" />
+            Download
+          </LoadingButton>
+          <LoadingButton
+            type="button"
+            variant="glow"
+            size="icon-sm"
+            className="sm:h-9 sm:w-auto sm:px-4"
+            loading={isSaving}
+            loadingText={<span className="hidden sm:inline">Saving...</span>}
+            disabled={!isReady || isDownloading || isFinalizing || !isDirty}
+            aria-label="Save PDF"
+            onClick={() => void onSave()}
+          >
+            <SaveIcon data-icon="inline-start" />
+            <span className="hidden sm:inline">Save</span>
+          </LoadingButton>
+          <VersionHistory
+            documentId={documentId}
+            open={isHistoryOpen}
+            onOpenChange={setIsHistoryOpen}
+            triggerClassName="hidden md:inline-flex"
+          />
+          <EditorMoreActions
+            documentId={documentId}
+            onRecognizeText={onRecognizeText}
+            onInsertPages={onInsertPages}
+            onDeleteCurrentPage={onDeleteCurrentPage}
+            onRotateCurrentPage={onRotateCurrentPage}
+            onReadCurrentPage={onReadCurrentPage}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            onDownload={onDownload}
+            onOpenHistory={() => {
+              window.setTimeout(() => setIsHistoryOpen(true), 0)
+            }}
+          />
+        </div>
       </div>
     </header>
   )

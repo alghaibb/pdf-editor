@@ -2,10 +2,15 @@
 
 import { useEffect, useRef } from "react"
 
-import { handleSaveShortcutEvent } from "../_lib/editor-utils"
+import {
+  handleHistoryShortcutEvent,
+  handleSaveShortcutEvent,
+} from "../_lib/editor-utils"
 
 type EditorKeyboardShortcuts = {
   onSave: () => void
+  onUndo: () => void
+  onRedo: () => void
 }
 
 /**
@@ -14,16 +19,27 @@ type EditorKeyboardShortcuts = {
  */
 export function useEditorKeyboardShortcuts({
   onSave,
+  onUndo,
+  onRedo,
 }: EditorKeyboardShortcuts) {
   const onSaveRef = useRef(onSave)
+  const onUndoRef = useRef(onUndo)
+  const onRedoRef = useRef(onRedo)
 
   useEffect(() => {
     onSaveRef.current = onSave
+    onUndoRef.current = onUndo
+    onRedoRef.current = onRedo
   })
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       handleSaveShortcutEvent(event, () => onSaveRef.current())
+      handleHistoryShortcutEvent(
+        event,
+        () => onUndoRef.current(),
+        () => onRedoRef.current()
+      )
     }
 
     window.addEventListener("keydown", onKeyDown)

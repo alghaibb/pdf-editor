@@ -258,10 +258,45 @@ export async function createDocumentShareLink(
   })
 
   return parseJson<{
+    id: string
     url: string
+    version: number
     expiresAt: string
     hours: 1 | 24 | 168
   }>(response, "The download link could not be created.")
+}
+
+export type DocumentShareSummary = {
+  id: string
+  url: string
+  version: number
+  expiresAt: string
+  createdAt: string
+}
+
+export async function fetchDocumentShares(documentId: string) {
+  const response = await fetch(`/api/documents/${documentId}/share`)
+
+  return parseJson<{
+    shares: DocumentShareSummary[]
+  }>(response, "Could not load download links.")
+}
+
+export async function revokeDocumentShare(
+  documentId: string,
+  shareId: string
+) {
+  const response = await fetch(
+    `/api/documents/${documentId}/share/${shareId}`,
+    {
+      method: "DELETE",
+    }
+  )
+
+  return parseJson<{
+    revoked: boolean
+    shareId: string
+  }>(response, "The download link could not be turned off.")
 }
 
 export async function deleteDocument(documentId: string) {

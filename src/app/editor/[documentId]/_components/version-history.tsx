@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { HistoryIcon } from "lucide-react"
@@ -39,6 +39,9 @@ import { useEditorStore } from "@/stores/editor-store"
 
 type VersionHistoryProps = {
   documentId: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  triggerClassName?: string
 }
 
 function formatSize(size: number) {
@@ -53,10 +56,16 @@ function formatSize(size: number) {
   return `${size} B`
 }
 
-export function VersionHistory({ documentId }: VersionHistoryProps) {
+export function VersionHistory({
+  documentId,
+  open,
+  onOpenChange,
+  triggerClassName,
+}: VersionHistoryProps) {
   const router = useRouter()
   const isSaving = useEditorStore((state) => state.isSaving)
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isOpen = open ?? internalOpen
   const [isLoading, setIsLoading] = useState(false)
   const [versions, setVersions] = useState<DocumentVersionSummary[] | null>(
     null
@@ -79,25 +88,49 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
     downloadingVersion !== null ||
     isSaving
 
-  async function loadVersions() {
-    setIsLoading(true)
-
-    try {
-      const result = await fetchDocumentVersions(documentId)
-      setVersions(result.versions)
-      setCurrentVersion(result.currentVersion)
-      setNextCursor(result.nextCursor)
-    } catch (error) {
-      console.error("Failed to load version history:", error)
-      toast.error(
-        error instanceof DocumentApiError
-          ? error.message
-          : "Could not load version history."
-      )
-    } finally {
-      setIsLoading(false)
+  useEffect(() => {
+    if (!isOpen) {
+      return
     }
-  }
+
+    let isCancelled = false
+
+    async function loadOpenVersions() {
+      setIsLoading(true)
+
+      try {
+        const result = await fetchDocumentVersions(documentId)
+
+        if (isCancelled) {
+          return
+        }
+
+        setVersions(result.versions)
+        setCurrentVersion(result.currentVersion)
+        setNextCursor(result.nextCursor)
+      } catch (error) {
+        console.error("Failed to load version history:", error)
+
+        if (!isCancelled) {
+          toast.error(
+            error instanceof DocumentApiError
+              ? error.message
+              : "Could not load version history."
+          )
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadOpenVersions()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [isOpen, documentId])
 
   async function loadMore() {
     if (nextCursor === null || isLoadingMore) {
@@ -124,12 +157,12 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
     }
   }
 
-  function onOpenChange(open: boolean) {
-    setIsOpen(open)
-
-    if (open) {
-      void loadVersions()
+  function handleOpenChange(nextOpen: boolean) {
+    if (open === undefined) {
+      setInternalOpen(nextOpen)
     }
+
+    onOpenChange?.(nextOpen)
   }
 
   function requestRestore(version: number) {
@@ -149,7 +182,7 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
     try {
       await restoreDocumentVersion(documentId, version)
       toast.success(`Version ${version} restored.`)
-      setIsOpen(false)
+      handleOpenChange(false)
       // The server page presigns a fresh download URL, which remounts the
       // viewer with the restored PDF.
       router.refresh()
@@ -208,22 +241,25 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <Sheet open={isOpen} onOpenChange={handleOpenChange}>
         <SheetTrigger
           render={
             <Button
               type="button"
               variant="outline"
               size="icon-sm"
-              className="lg:size-10"
+              className={triggerClassName}
               aria-label="Version history"
             />
           }
         >
           <HistoryIcon />
         </SheetTrigger>
-        <SheetContent side="right">
-          <SheetHeader>
+        <SheetContent
+          side="right"
+          className="h-dvh max-h-dvh min-h-0 overflow-hidden data-[side=right]:w-full data-[side=right]:sm:max-w-md data-[side=right]:lg:max-w-lg"
+        >
+          <SheetHeader className="shrink-0 gap-2 p-5 pr-14 sm:p-6 sm:pr-16">
             <SheetTitle>Version history</SheetTitle>
             <SheetDescription>
               Every save keeps a copy. Download any version without changing
@@ -231,14 +267,14 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
               save. Deleting a version is permanent.
             </SheetDescription>
           </SheetHeader>
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-8 pb-8">
-            {isLoading ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-5 pb-6 sm:px-6">
+            {isLoading || versions === null ? (
               <>
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-28 w-full" />
               </>
-            ) : versions === null || versions.length === 0 ? (
+            ) : versions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No saved versions yet. Save the document to create one.
               </p>
@@ -248,32 +284,36 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
                   const isCurrent = entry.version === currentVersion
 
                   return (
-                    <div
+                    <article
                       key={entry.version}
-                      className="flex items-center justify-between gap-4 border border-border px-4 py-3"
+                      className="flex flex-col gap-3 border border-border p-4"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">
-                          Version {entry.version}
-                          {isCurrent ? (
-                            <span className="ml-2 text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                              Current
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {format(
-                            new Date(entry.createdAt),
-                            "dd/MM/yyyy h:mm a"
-                          )}{" "}
-                          · {formatSize(entry.size)}
-                        </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            Version {entry.version}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {format(
+                              new Date(entry.createdAt),
+                              "dd MMM yyyy, h:mm a"
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {formatSize(entry.size)}
+                          </p>
+                        </div>
+                        {isCurrent ? (
+                          <span className="shrink-0 text-[10px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                            Current
+                          </span>
+                        ) : null}
                       </div>
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="flex flex-wrap gap-2">
                         <LoadingButton
                           type="button"
                           variant="outline"
-                          size="xs"
+                          size="sm"
                           loading={downloadingVersion === entry.version}
                           loadingText="Downloading..."
                           disabled={isBusy}
@@ -286,7 +326,7 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
                             <LoadingButton
                               type="button"
                               variant="outline"
-                              size="xs"
+                              size="sm"
                               loading={restoringVersion === entry.version}
                               loadingText="Restoring..."
                               disabled={isBusy}
@@ -297,7 +337,7 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
                             <LoadingButton
                               type="button"
                               variant="ghost"
-                              size="xs"
+                              size="sm"
                               className="text-muted-foreground hover:text-destructive"
                               loading={deletingVersion === entry.version}
                               loadingText="Deleting..."
@@ -311,7 +351,7 @@ export function VersionHistory({ documentId }: VersionHistoryProps) {
                           </>
                         )}
                       </div>
-                    </div>
+                    </article>
                   )
                 })}
                 {nextCursor !== null ? (

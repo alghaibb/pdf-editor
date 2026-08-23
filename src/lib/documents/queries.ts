@@ -240,19 +240,66 @@ export async function renameOwnedDocument(input: {
 export async function createDocumentShare(input: {
   documentId: string
   token: string
+  version: number
   expiresAt: Date
 }) {
   return prisma.documentShare.create({
     data: {
       documentId: input.documentId,
       token: input.token,
+      version: input.version,
       expiresAt: input.expiresAt,
     },
     select: {
+      id: true,
       token: true,
+      version: true,
       expiresAt: true,
+      createdAt: true,
     },
   })
+}
+
+export async function listOwnedShares(documentId: string, userId: string) {
+  return prisma.documentShare.findMany({
+    where: {
+      documentId,
+      expiresAt: {
+        gt: new Date(),
+      },
+      document: {
+        userId,
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      id: true,
+      token: true,
+      version: true,
+      expiresAt: true,
+      createdAt: true,
+    },
+  })
+}
+
+export async function revokeOwnedShare(input: {
+  shareId: string
+  documentId: string
+  userId: string
+}) {
+  const result = await prisma.documentShare.deleteMany({
+    where: {
+      id: input.shareId,
+      documentId: input.documentId,
+      document: {
+        userId: input.userId,
+      },
+    },
+  })
+
+  return result.count === 1
 }
 
 export async function getShareByToken(token: string) {
@@ -262,6 +309,7 @@ export async function getShareByToken(token: string) {
     },
     select: {
       id: true,
+      version: true,
       expiresAt: true,
       document: {
         select: {
@@ -284,6 +332,7 @@ export async function getSharePageState(token: string) {
 
   return {
     name: share.document.name,
+    version: share.version,
     expiresAt: share.expiresAt,
     isExpired: share.expiresAt.getTime() <= Date.now(),
   }

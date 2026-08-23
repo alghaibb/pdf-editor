@@ -64,6 +64,8 @@ export const shareTokenSchema = z
   .string()
   .regex(/^[A-Za-z0-9_-]{16,64}$/)
 
+export const shareIdSchema = z.uuid()
+
 export type CreateUploadUrlInput = z.infer<typeof createUploadUrlSchema>
 export type CompleteDocumentInput = z.infer<typeof completeDocumentSchema>
 export type RenameDocumentInput = z.infer<typeof renameDocumentSchema>
