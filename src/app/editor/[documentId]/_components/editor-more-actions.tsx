@@ -43,6 +43,7 @@ type EditorMoreActionsProps = {
   onUndo: () => Promise<void>
   onRedo: () => Promise<void>
   onDownload: () => Promise<void>
+  onToggleSign: () => Promise<void>
   onOpenHistory: () => void
 }
 
@@ -70,6 +71,7 @@ export function EditorMoreActions({
   onUndo,
   onRedo,
   onDownload,
+  onToggleSign,
   onOpenHistory,
 }: EditorMoreActionsProps) {
   const router = useRouter()
@@ -85,6 +87,7 @@ export function EditorMoreActions({
   const isDownloading = useEditorStore((state) => state.isDownloading)
   const canUndo = useEditorStore((state) => state.canUndo)
   const canRedo = useEditorStore((state) => state.canRedo)
+  const editorMode = useEditorStore((state) => state.editorMode)
   const isBusy = !isReady || isSaving || isFinalizing || isDownloading
 
   function requestLeave(href: string) {
@@ -129,6 +132,12 @@ export function EditorMoreActions({
           <DropdownMenuSeparator className="sm:hidden" />
           <DropdownMenuGroup>
             <DropdownMenuLabel>Document</DropdownMenuLabel>
+            <DropdownMenuItem
+              disabled={!isReady || isSaving}
+              onClick={() => void onToggleSign()}
+            >
+              {editorMode === "sign" ? "Edit text" : "Sign PDF"}
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="lg:hidden"
               disabled={!isReady || isSaving}

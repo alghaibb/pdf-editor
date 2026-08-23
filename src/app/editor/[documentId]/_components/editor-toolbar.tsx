@@ -4,8 +4,10 @@ import { useState } from "react"
 import {
   DownloadIcon,
   LayoutDashboardIcon,
+  PenLineIcon,
   Redo2Icon,
   SaveIcon,
+  TypeIcon,
   Undo2Icon,
 } from "lucide-react"
 
@@ -31,6 +33,7 @@ type EditorToolbarProps = {
   onReadCurrentPage: () => CurrentPageInfo | null
   onUndo: () => Promise<void>
   onRedo: () => Promise<void>
+  onToggleSign: () => Promise<void>
 }
 
 export function EditorToolbar({
@@ -44,6 +47,7 @@ export function EditorToolbar({
   onReadCurrentPage,
   onUndo,
   onRedo,
+  onToggleSign,
 }: EditorToolbarProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const isReady = useEditorStore((state) => state.isReady)
@@ -53,6 +57,8 @@ export function EditorToolbar({
   const isDownloading = useEditorStore((state) => state.isDownloading)
   const canUndo = useEditorStore((state) => state.canUndo)
   const canRedo = useEditorStore((state) => state.canRedo)
+  const editorMode = useEditorStore((state) => state.editorMode)
+  const isSigning = editorMode === "sign"
 
   return (
     <header className="min-w-0 shrink-0 border-b border-border">
@@ -119,9 +125,28 @@ export function EditorToolbar({
           </LoadingButton>
           <LoadingButton
             type="button"
+            variant={isSigning ? "default" : "outline"}
+            size="icon-sm"
+            className="sm:h-9 sm:w-auto sm:gap-2 sm:px-4"
+            disabled={!isReady || isSaving}
+            aria-label={isSigning ? "Edit text" : "Sign PDF"}
+            aria-pressed={isSigning}
+            onClick={() => void onToggleSign()}
+          >
+            {isSigning ? (
+              <TypeIcon data-icon="inline-start" />
+            ) : (
+              <PenLineIcon data-icon="inline-start" />
+            )}
+            <span className="hidden sm:inline">
+              {isSigning ? "Edit text" : "Sign"}
+            </span>
+          </LoadingButton>
+          <LoadingButton
+            type="button"
             variant="glow"
             size="icon-sm"
-            className="sm:h-9 sm:w-auto sm:px-4"
+            className="sm:h-9 sm:w-auto sm:gap-2 sm:px-4"
             loading={isSaving}
             loadingText={<span className="hidden sm:inline">Saving...</span>}
             disabled={!isReady || isDownloading || isFinalizing || !isDirty}
@@ -147,6 +172,7 @@ export function EditorToolbar({
             onUndo={onUndo}
             onRedo={onRedo}
             onDownload={onDownload}
+            onToggleSign={onToggleSign}
             onOpenHistory={() => {
               window.setTimeout(() => setIsHistoryOpen(true), 0)
             }}
