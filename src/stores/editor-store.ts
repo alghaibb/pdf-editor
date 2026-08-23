@@ -30,8 +30,20 @@ type EditorState = {
    * because it flips the save status to failed.
    */
   noticeMessage: string | null
+  currentPage: number
+  pageCount: number
+  /**
+   * Bumped when the page set changes so thumbnails reload without
+   * watching Apryse internals.
+   */
+  pageEpoch: number
+  canUndo: boolean
+  canRedo: boolean
   setDocument: (documentId: string, fileName: string) => void
   setReady: (isReady: boolean) => void
+  setPageInfo: (currentPage: number, pageCount: number) => void
+  bumpPageEpoch: () => void
+  setHistoryAvailability: (canUndo: boolean, canRedo: boolean) => void
   markDirty: () => void
   markSaved: (savedEpoch?: number) => void
   setSaving: (isSaving: boolean) => void
@@ -54,6 +66,11 @@ const initialState = {
   saveStatus: "saved" as const,
   errorMessage: null,
   noticeMessage: null,
+  currentPage: 1,
+  pageCount: 1,
+  pageEpoch: 0,
+  canUndo: false,
+  canRedo: false,
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -99,5 +116,9 @@ export const useEditorStore = create<EditorState>((set) => ({
       isSaving: false,
     }),
   setNotice: (noticeMessage) => set({ noticeMessage }),
+  setPageInfo: (currentPage, pageCount) => set({ currentPage, pageCount }),
+  bumpPageEpoch: () =>
+    set((state) => ({ pageEpoch: state.pageEpoch + 1 })),
+  setHistoryAvailability: (canUndo, canRedo) => set({ canUndo, canRedo }),
   reset: () => set(initialState),
 }))

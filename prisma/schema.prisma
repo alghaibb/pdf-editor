@@ -112,6 +112,7 @@ model DocumentShare {
   documentId String
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   token      String   @unique
+  version    Int
   expiresAt  DateTime
   createdAt  DateTime @default(now())
 

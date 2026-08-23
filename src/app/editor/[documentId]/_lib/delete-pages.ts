@@ -40,8 +40,25 @@ export async function removeCurrentPage(instance: WebViewerInstance) {
     throw new Error("No document is loaded.")
   }
 
+  return removePage(instance, info.page)
+}
+
+export async function removePage(
+  instance: WebViewerInstance,
+  page: number
+) {
+  const info = getCurrentPageInfo(instance)
+
+  if (!info) {
+    throw new Error("No document is loaded.")
+  }
+
   if (info.pageCount <= 1) {
     throw new LastPageError()
+  }
+
+  if (page < 1 || page > info.pageCount) {
+    throw new Error("That page is not in this document.")
   }
 
   const document = instance.Core.documentViewer.getDocument()
@@ -50,8 +67,8 @@ export async function removeCurrentPage(instance: WebViewerInstance) {
     throw new Error("No document is loaded.")
   }
 
-  await asRemovableDocument(document).removePages([info.page])
-  return info
+  await asRemovableDocument(document).removePages([page])
+  return { page, pageCount: info.pageCount - 1 }
 }
 
 function asRemovableDocument(document: Core.Document): RemovableDocument {

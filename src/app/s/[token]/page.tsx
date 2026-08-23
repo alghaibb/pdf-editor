@@ -61,7 +61,8 @@ async function SharedDocument({ params }: PageProps<"/s/[token]">) {
       ) : (
         <>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            This is a download-only copy of the latest saved file. It expires{" "}
+            This is a download-only snapshot of version {share.version}. Later
+            edits are not included. It expires{" "}
             {format(share.expiresAt, "dd/MM/yyyy h:mm a")}.
           </p>
           <a

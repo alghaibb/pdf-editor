@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { preconnect } from "react-dom"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
@@ -12,6 +12,7 @@ import { useEditorStore } from "@/stores/editor-store"
 import { LastPageError } from "../_lib/delete-pages"
 import { OcrError } from "../_lib/ocr"
 import { EditorToolbar } from "./editor-toolbar"
+import { PageThumbnails } from "./page-thumbnails"
 import { useAutosave } from "../_hooks/use-autosave"
 import { useEditorKeyboardShortcuts } from "../_hooks/use-editor-keyboard-shortcuts"
 import { useWebViewer } from "../_hooks/use-webviewer"
@@ -48,7 +49,13 @@ export function PdfEditor({
     recognizeText,
     insertPagesFromPdf,
     deleteCurrentPage,
+    deletePageAt,
     readCurrentPage,
+    jumpToPage,
+    rotatePageAt,
+    getPageThumbnail,
+    undoEdit,
+    redoEdit,
   } = useWebViewer(
     viewerRef,
     {
@@ -56,6 +63,7 @@ export function PdfEditor({
       documentId,
       fileName,
       downloadUrl,
+      currentVersion,
       onSaveShortcut: () => void handleSave(),
     }
   )
@@ -124,6 +132,25 @@ export function PdfEditor({
     }
   }
 
+  async function handleRotateCurrentPage() {
+    const page = readCurrentPage()
+
+    if (!page) {
+      toast.error("The editor is still loading.")
+      return
+    }
+
+    try {
+      await rotatePageAt(page.page)
+      toast.success("Page rotated. Save to keep the change.")
+    } catch (error) {
+      console.error("Failed to rotate the current page:", error)
+      toast.error(
+        error instanceof Error ? error.message : "The page could not be rotated."
+      )
+    }
+  }
+
   async function handleInsertPages(file: File) {
     try {
       await insertPagesFromPdf(file)
@@ -154,7 +181,34 @@ export function PdfEditor({
     }
   }
 
-  useEditorKeyboardShortcuts({ onSave: () => void handleSave() })
+  const loadThumbnail = useCallback(
+    (page: number) => getPageThumbnail(page),
+    [getPageThumbnail]
+  )
+
+  async function handleUndo() {
+    try {
+      await undoEdit()
+    } catch (error) {
+      console.error("Failed to undo:", error)
+      toast.error("Nothing to undo.")
+    }
+  }
+
+  async function handleRedo() {
+    try {
+      await redoEdit()
+    } catch (error) {
+      console.error("Failed to redo:", error)
+      toast.error("Nothing to redo.")
+    }
+  }
+
+  useEditorKeyboardShortcuts({
+    onSave: () => void handleSave(),
+    onUndo: () => void handleUndo(),
+    onRedo: () => void handleRedo(),
+  })
   useAutosave(() => void handleAutosave())
 
   useEffect(() => {
@@ -249,8 +303,18 @@ export function PdfEditor({
         onRecognizeText={handleRecognizeText}
         onInsertPages={handleInsertPages}
         onDeleteCurrentPage={handleDeleteCurrentPage}
+        onRotateCurrentPage={handleRotateCurrentPage}
         onReadCurrentPage={readCurrentPage}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
       />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
+        <PageThumbnails
+          onJumpToPage={jumpToPage}
+          onDeletePage={deletePageAt}
+          onRotatePage={rotatePageAt}
+          onLoadThumbnail={loadThumbnail}
+        />
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         {!isReady ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background">
@@ -334,6 +398,7 @@ export function PdfEditor({
           ref={viewerRef}
           className="h-full min-h-0 w-full min-w-0"
         />
+      </div>
       </div>
     </div>
   )
