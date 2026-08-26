@@ -29,7 +29,7 @@ import {
   loadPageThumbnail,
   rotatePage,
 } from "../_lib/page-thumbs"
-import { OcrError, recognizeScannedPages } from "../_lib/ocr"
+import { OcrError } from "../_lib/ocr-error"
 import { clearRecoveryStash, stashRecoveryPdf } from "../_lib/recovery"
 import {
   applySignatureImage,
@@ -149,8 +149,11 @@ export function useWebViewer(
             filename: fileNameRef.current,
             extension: "pdf",
             enableFilePicker: false,
-            // Signed R2 URLs do not expose Content-Range, so skip range requests.
+            // Signed R2 URLs do not expose Content-Range. streaming: false
+            // is not enough — WebViewer still probes with a Range request
+            // and logs the failure. useDownloader skips that probe.
             streaming: false,
+            useDownloader: false,
           },
           viewerElementRef.current
         )
@@ -529,6 +532,7 @@ export function useWebViewer(
       .setNotice("Reading text from the page images...")
 
     try {
+      const { recognizeScannedPages } = await import("../_lib/ocr")
       const blob = await recognizeScannedPages(instance, ({ page, pageCount }) => {
         useEditorStore
           .getState()

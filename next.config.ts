@@ -14,14 +14,52 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    const cacheControl = {
+      key: "Cache-Control",
+      value: "public, max-age=31536000, immutable",
+    } as const
+
     return [
       {
         source: "/lib/webviewer/:path*",
-        headers: [
+        headers: [cacheControl],
+      },
+      // Apryse ships pre-compressed workers named *.br.* and *.gz.*.
+      // Content-Encoding lets the browser decode them natively instead of
+      // WebViewer inflating them in JS (and fetching each worker twice).
+      // Brotli is HTTPS-only: Chrome rejects Content-Encoding: br on HTTP,
+      // which would break local `next dev`.
+      {
+        source: "/lib/webviewer/:path(.*\\.br\\..*)",
+        has: [
           {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            type: "header",
+            key: "x-forwarded-proto",
+            value: "https",
           },
+          {
+            type: "header",
+            key: "accept-encoding",
+            value: "(.*br.*)",
+          },
+        ],
+        headers: [
+          { key: "Content-Encoding", value: "br" },
+          { key: "Vary", value: "Accept-Encoding" },
+        ],
+      },
+      {
+        source: "/lib/webviewer/:path(.*\\.gz\\..*)",
+        has: [
+          {
+            type: "header",
+            key: "accept-encoding",
+            value: "(.*gzip.*)",
+          },
+        ],
+        headers: [
+          { key: "Content-Encoding", value: "gzip" },
+          { key: "Vary", value: "Accept-Encoding" },
         ],
       },
     ]
