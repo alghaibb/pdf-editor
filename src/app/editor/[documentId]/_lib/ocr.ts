@@ -1,11 +1,27 @@
 import type { Core, WebViewerInstance } from "@pdftron/webviewer"
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
-import Tesseract from "tesseract.js"
 
 import { exportPdfBlob } from "./editor-utils"
+import { OcrError } from "./ocr-error"
 
 const MIN_WORD_CONFIDENCE = 40
 const CANVAS_ZOOM = 2
+
+type OcrWord = {
+  text: string
+  confidence: number
+  bbox: { x0: number; y0: number; x1: number; y1: number }
+}
+
+type OcrPage = {
+  blocks?: Array<{
+    paragraphs: Array<{
+      lines: Array<{
+        words: OcrWord[]
+      }>
+    }>
+  }> | null
+}
 
 type CanvasDocument = {
   getPageCount: () => number
@@ -15,13 +31,6 @@ type CanvasDocument = {
     zoom?: number
     drawComplete: (canvas: unknown) => void
   }) => unknown
-}
-
-export class OcrError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = "OcrError"
-  }
 }
 
 export type OcrProgress = {
@@ -60,7 +69,9 @@ export async function recognizeScannedPages(
     throw new OcrError("This PDF already has selectable text.")
   }
 
-  const worker = await Tesseract.createWorker("eng")
+  const tesseract = await import("tesseract.js")
+  const createWorker = getCreateWorker(tesseract)
+  const worker = await createWorker("eng")
 
   try {
     const exported = await exportPdfBlob(instance)
@@ -78,7 +89,7 @@ export async function recognizeScannedPages(
       const scaleX = pageWidth / canvas.width
       const scaleY = pageHeight / canvas.height
 
-      for (const word of collectWords(result.data)) {
+      for (const word of collectWords(result.data as OcrPage)) {
         const text = word.text.trim()
 
         if (!text || word.confidence < MIN_WORD_CONFIDENCE) {
@@ -115,7 +126,25 @@ export async function recognizeScannedPages(
   }
 }
 
-function collectWords(page: Tesseract.Page): Tesseract.Word[] {
+function getCreateWorker(
+  tesseract: typeof import("tesseract.js") & {
+    default?: typeof import("tesseract.js")
+  }
+) {
+  if (typeof tesseract.createWorker === "function") {
+    return tesseract.createWorker
+  }
+
+  const fallback = tesseract.default?.createWorker
+
+  if (typeof fallback === "function") {
+    return fallback
+  }
+
+  throw new OcrError("Text recognition could not be started.")
+}
+
+function collectWords(page: OcrPage): OcrWord[] {
   return (
     page.blocks?.flatMap((block) =>
       block.paragraphs.flatMap((paragraph) =>
