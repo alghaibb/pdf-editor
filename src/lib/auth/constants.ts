@@ -23,7 +23,7 @@ export const AUTH_FEATURES = {
    * The emailOTP plugin still supports it server-side.
    */
   signInWithOtp: false,
-  socialProviders: [] as const,
+  socialProviders: ["google"] as const,
 } as const
 
 export type AuthErrorCode =
@@ -35,4 +35,5 @@ export type AuthErrorCode =
   | "VALIDATION_ERROR"
   | "RATE_LIMITED"
   | "EMAIL_SEND_FAILED"
+  | "SOCIAL_AUTH_FAILED"
   | "UNKNOWN"
