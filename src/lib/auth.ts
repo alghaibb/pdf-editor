@@ -26,12 +26,38 @@ function getTrustedOrigins(): string[] {
   return [...origins]
 }
 
+function getGoogleSocialProvider() {
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    return undefined
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    prompt: "select_account" as const,
+  }
+}
+
+const googleSocialProvider = getGoogleSocialProvider()
+
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
   baseURL: process.env.BETTER_AUTH_URL,
   trustedOrigins: getTrustedOrigins(),
+  socialProviders: {
+    ...(googleSocialProvider ? { google: googleSocialProvider } : {}),
+  },
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,

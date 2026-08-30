@@ -80,8 +80,30 @@ export function authErrorMessage(code: AuthErrorCode): string {
       return "Too many requests. Please wait a moment and try again."
     case "EMAIL_SEND_FAILED":
       return "We couldn't send the email. Please try again."
+    case "SOCIAL_AUTH_FAILED":
+      return "Could not continue with Google. Try again."
     case "UNKNOWN":
     default:
       return "Something went wrong. Please try again."
+  }
+}
+
+export function oauthErrorMessage(code: string): string {
+  switch (code) {
+    case "access_denied":
+      return "Google sign-in was cancelled."
+    case "account_already_linked_to_different_user":
+      return "This Google account is already used with another login."
+    case "account_not_linked":
+    case "unable_to_link_account":
+      return "This email already has an account. Sign in with email first."
+    case "oauth_provider_not_found":
+    case "oauth_provider_not_supported":
+      return "Google sign-in is not available right now."
+    case "state_mismatch":
+    case "invalid_code":
+      return "That Google sign-in expired. Try again."
+    default:
+      return authErrorMessage("SOCIAL_AUTH_FAILED")
   }
 }

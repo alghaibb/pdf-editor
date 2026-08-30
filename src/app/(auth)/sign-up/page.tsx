@@ -2,8 +2,10 @@ import Link from "next/link"
 import type { Metadata } from "next"
 
 import { AuthGuestPage } from "@/components/auth/auth-guest-page"
+import { AuthMethods } from "@/components/auth/auth-methods"
 import { AuthShell } from "@/components/auth/auth-shell"
 import { SignUpForm } from "@/app/(auth)/sign-up/_components/sign-up-form"
+import { isGoogleAuthConfigured } from "@/lib/auth/google"
 
 export const metadata: Metadata = {
   title: "Create account",
@@ -11,11 +13,17 @@ export const metadata: Metadata = {
 }
 
 export default function SignUpPage() {
+  const googleEnabled = isGoogleAuthConfigured()
+
   return (
     <AuthGuestPage>
       <AuthShell
         title="Create account"
-        description="Start uploading and editing PDFs in your browser."
+        description={
+          googleEnabled
+            ? "Continue with Google to skip the forms, or create an account with email."
+            : "Start uploading and editing PDFs in your browser."
+        }
         footer={
           <>
             Already have an account?{" "}
@@ -28,7 +36,9 @@ export default function SignUpPage() {
           </>
         }
       >
-        <SignUpForm />
+        <AuthMethods googleEnabled={googleEnabled}>
+          <SignUpForm />
+        </AuthMethods>
       </AuthShell>
     </AuthGuestPage>
   )
